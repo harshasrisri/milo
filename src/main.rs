@@ -1,6 +1,12 @@
-use std::io::{self, Read, Result, Error, ErrorKind};
-use libc::{termios as Termios, c_int, tcflag_t};
+use libc::{c_int, tcflag_t, termios as Termios};
+use std::io::{self, Error, ErrorKind, Read, Result};
 use std::mem;
+
+extern "C" {
+    pub fn tcgetattr(fd: c_int, termios: *mut Termios) -> c_int;
+    pub fn tcsetattr(fd: c_int, optional_actions: c_int, termios: *const Termios) -> c_int;
+    pub fn iscntrl(c: c_int) -> c_int;
+}
 
 trait TermiosAttrExt {
     fn get_attr(&mut self) -> Result<()>;
@@ -9,7 +15,7 @@ trait TermiosAttrExt {
 
 impl TermiosAttrExt for Termios {
     fn get_attr(&mut self) -> Result<()> {
-        Ok( unsafe {
+        Ok(unsafe {
             if tcgetattr(libc::STDIN_FILENO, self) != 0 {
                 return Err(Error::new(ErrorKind::Other, "Can't get term attributes"));
             }
@@ -17,7 +23,7 @@ impl TermiosAttrExt for Termios {
     }
 
     fn set_attr(&self) -> Result<()> {
-        Ok( unsafe {
+        Ok(unsafe {
             if tcsetattr(libc::STDIN_FILENO, libc::TCSAFLUSH, self) != 0 {
                 return Err(Error::new(ErrorKind::Other, "Can't get term attributes"));
             }
@@ -32,11 +38,6 @@ enum TermioFlagFields {
     LocalFlags,
 }
 
-extern "C" {
-    pub fn tcgetattr(fd: c_int, termios: *mut Termios) -> c_int; 
-    pub fn tcsetattr(fd: c_int, optional_actions: c_int, termios: *const Termios) -> c_int;
-}
-
 struct Terminal {
     orig_flags: Termios,
     curr_flags: Termios,
@@ -44,18 +45,22 @@ struct Terminal {
 
 impl Terminal {
     pub fn new() -> Result<Self> {
-        let (mut orig_flags, mut curr_flags) = unsafe {(mem::zeroed::<Termios>(), mem::zeroed::<Termios>())};
+        let (mut orig_flags, mut curr_flags) =
+            unsafe { (mem::zeroed::<Termios>(), mem::zeroed::<Termios>()) };
         orig_flags.get_attr()?;
         curr_flags.get_attr()?;
-        Ok(Self { orig_flags, curr_flags })
+        Ok(Self {
+            orig_flags,
+            curr_flags,
+        })
     }
 
     pub fn enable_flag(&mut self, field: TermioFlagFields, flags: tcflag_t) -> Result<()> {
         let curr_field = match field {
-            TermioFlagFields::InputFlags   => &mut self.curr_flags.c_iflag,
-            TermioFlagFields::OutputFlags  => &mut self.curr_flags.c_oflag,
+            TermioFlagFields::InputFlags => &mut self.curr_flags.c_iflag,
+            TermioFlagFields::OutputFlags => &mut self.curr_flags.c_oflag,
             TermioFlagFields::ControlFlags => &mut self.curr_flags.c_cflag,
-            TermioFlagFields::LocalFlags   => &mut self.curr_flags.c_lflag,
+            TermioFlagFields::LocalFlags => &mut self.curr_flags.c_lflag,
         };
         *curr_field |= flags as u32;
         self.curr_flags.set_attr()?;
@@ -64,10 +69,10 @@ impl Terminal {
 
     pub fn disable_flag(&mut self, field: TermioFlagFields, flags: tcflag_t) -> Result<()> {
         let curr_field = match field {
-            TermioFlagFields::InputFlags   => &mut self.curr_flags.c_iflag,
-            TermioFlagFields::OutputFlags  => &mut self.curr_flags.c_oflag,
+            TermioFlagFields::InputFlags => &mut self.curr_flags.c_iflag,
+            TermioFlagFields::OutputFlags => &mut self.curr_flags.c_oflag,
             TermioFlagFields::ControlFlags => &mut self.curr_flags.c_cflag,
-            TermioFlagFields::LocalFlags   => &mut self.curr_flags.c_lflag,
+            TermioFlagFields::LocalFlags => &mut self.curr_flags.c_lflag,
         };
         *curr_field &= !(flags as u32);
         self.curr_flags.set_attr()?;
@@ -77,18 +82,26 @@ impl Terminal {
 
 impl Drop for Terminal {
     fn drop(&mut self) {
-        self.orig_flags.set_attr().expect("Failed to restore terminal state");
+        self.orig_flags
+            .set_attr()
+            .expect("Failed to restore terminal state");
     }
 }
 
 fn main() -> Result<()> {
     let mut terminal = Terminal::new()?;
     terminal.disable_flag(TermioFlagFields::LocalFlags, libc::ICANON | libc::ECHO)?;
-    let mut buf = [0; 1];
-    loop {
-        let n = io::stdin().read(&mut buf)?;
-        if n == 0 || buf[0] == b'q' || buf[0] == b'Q' {
-            return Ok(());
+
+    for byte in io::stdin().bytes() {
+        let byte = byte.unwrap();
+        if byte == b'q' || byte == b'Q' {
+            break;
+        }
+        if unsafe { iscntrl(byte as i32) != 0 } {
+            println!("{:02x}", byte as u8);
+        } else {
+            println!("{:02x} ({})", byte as u8, byte as char);
         }
     }
+    Ok(())
 }
