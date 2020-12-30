@@ -73,9 +73,9 @@ fn main() -> Result<()> {
             break;
         }
         if unsafe { iscntrl(byte as i32) != 0 } {
-            println!("{:02x}", byte as u8);
+            print!("{:02x}\r\n", byte as u8);
         } else {
-            println!("{:02x} ({})", byte as u8, byte as char);
+            print!("{:02x} ({})\r\n", byte as u8, byte as char);
         }
     }
     Ok(())
