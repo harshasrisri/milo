@@ -59,6 +59,7 @@ fn raw_mode_terminal() -> Result<Terminal> {
     let mut terminal = Terminal::new()?;
     terminal.curr_flags.c_lflag &= !(libc::ECHO | libc::ICANON | libc::ISIG | libc::IEXTEN);
     terminal.curr_flags.c_iflag &= !(libc::IXON | libc::ICRNL);
+    terminal.curr_flags.c_oflag &= !(libc::OPOST);
     terminal.curr_flags.set_attr()?;
     Ok(terminal)
 }
