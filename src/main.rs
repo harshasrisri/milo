@@ -1,4 +1,4 @@
-use libc::{c_int, tcflag_t, termios as Termios};
+use libc::{c_int, termios as Termios};
 use std::io::{self, Error, ErrorKind, Read, Result};
 use std::mem;
 
@@ -31,13 +31,6 @@ impl TermiosAttrExt for Termios {
     }
 }
 
-enum TermioFlagFields {
-    InputFlags,
-    OutputFlags,
-    ControlFlags,
-    LocalFlags,
-}
-
 struct Terminal {
     orig_flags: Termios,
     curr_flags: Termios,
@@ -45,38 +38,12 @@ struct Terminal {
 
 impl Terminal {
     pub fn new() -> Result<Self> {
-        let (mut orig_flags, mut curr_flags) =
-            unsafe { (mem::zeroed::<Termios>(), mem::zeroed::<Termios>()) };
+        let mut orig_flags = unsafe { mem::zeroed::<Termios>() };
         orig_flags.get_attr()?;
-        curr_flags.get_attr()?;
         Ok(Self {
             orig_flags,
-            curr_flags,
+            curr_flags: orig_flags.clone(),
         })
-    }
-
-    pub fn enable_flag(&mut self, field: TermioFlagFields, flags: tcflag_t) -> Result<()> {
-        let curr_field = match field {
-            TermioFlagFields::InputFlags => &mut self.curr_flags.c_iflag,
-            TermioFlagFields::OutputFlags => &mut self.curr_flags.c_oflag,
-            TermioFlagFields::ControlFlags => &mut self.curr_flags.c_cflag,
-            TermioFlagFields::LocalFlags => &mut self.curr_flags.c_lflag,
-        };
-        *curr_field |= flags as u32;
-        self.curr_flags.set_attr()?;
-        Ok(())
-    }
-
-    pub fn disable_flag(&mut self, field: TermioFlagFields, flags: tcflag_t) -> Result<()> {
-        let curr_field = match field {
-            TermioFlagFields::InputFlags => &mut self.curr_flags.c_iflag,
-            TermioFlagFields::OutputFlags => &mut self.curr_flags.c_oflag,
-            TermioFlagFields::ControlFlags => &mut self.curr_flags.c_cflag,
-            TermioFlagFields::LocalFlags => &mut self.curr_flags.c_lflag,
-        };
-        *curr_field &= !(flags as u32);
-        self.curr_flags.set_attr()?;
-        Ok(())
     }
 }
 
@@ -88,17 +55,16 @@ impl Drop for Terminal {
     }
 }
 
-fn enable_raw_mode(terminal: &mut Terminal) -> Result<()> {
-    terminal.disable_flag(
-        TermioFlagFields::LocalFlags,
-        libc::ECHO | libc::ICANON | libc::ISIG,
-    )?;
-    Ok(())
+fn raw_mode_terminal() -> Result<Terminal> {
+    let mut terminal = Terminal::new()?;
+    terminal.curr_flags.c_lflag &= !(libc::ECHO | libc::ICANON | libc::ISIG);
+    terminal.curr_flags.c_iflag &= !(libc::IXON);
+    terminal.curr_flags.set_attr()?;
+    Ok(terminal)
 }
 
 fn main() -> Result<()> {
-    let mut terminal = Terminal::new()?;
-    enable_raw_mode(&mut terminal)?;
+    let _terminal = raw_mode_terminal()?;
 
     for byte in io::stdin().bytes() {
         let byte = byte.unwrap();

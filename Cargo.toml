@@ -1,6 +1,6 @@
 [package]
 name = "txtdt"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Sriharsha Mucheli <harshasrisri@gmail.com>"]
 edition = "2018"
 description = "Building a small text editor in Rust by emulating https://viewsourcecode.org/snaptoken/kilo (written in C)"
