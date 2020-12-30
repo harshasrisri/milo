@@ -70,14 +70,14 @@ fn main() -> Result<()> {
     let _terminal = raw_mode_terminal()?;
 
     for byte in io::stdin().bytes() {
-        let byte = byte.unwrap();
-        if byte == b'q' || byte == b'Q' {
-            break;
-        }
+        let byte = byte.unwrap_or(b'q');
         if unsafe { iscntrl(byte as i32) != 0 } {
             print!("{:02x}\r\n", byte as u8);
         } else {
             print!("{:02x} ({})\r\n", byte as u8, byte as char);
+        }
+        if byte == b'q' {
+            break;
         }
     }
     Ok(())
