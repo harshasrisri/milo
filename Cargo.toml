@@ -4,3 +4,6 @@ version = "0.1.0"
 authors = ["Sriharsha Mucheli <harshasrisri@gmail.com>"]
 edition = "2018"
 description = "Building a small text editor in Rust by emulating https://viewsourcecode.org/snaptoken/kilo (written in C)"
+
+[dependencies]
+libc = "0.2.81"
