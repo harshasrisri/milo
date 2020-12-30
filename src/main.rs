@@ -1,4 +1,5 @@
 use libc::{c_int, termios as Termios};
+use libc::{BRKINT, CS8, ECHO, ICANON, ICRNL, IEXTEN, INPCK, ISIG, ISTRIP, IXON, OPOST};
 use std::io::{self, Error, ErrorKind, Read, Result};
 use std::mem;
 
@@ -57,9 +58,10 @@ impl Drop for Terminal {
 
 fn raw_mode_terminal() -> Result<Terminal> {
     let mut terminal = Terminal::new()?;
-    terminal.curr_flags.c_lflag &= !(libc::ECHO | libc::ICANON | libc::ISIG | libc::IEXTEN);
-    terminal.curr_flags.c_iflag &= !(libc::IXON | libc::ICRNL);
-    terminal.curr_flags.c_oflag &= !(libc::OPOST);
+    terminal.curr_flags.c_lflag &= !(ECHO | ICANON | ISIG | IEXTEN);
+    terminal.curr_flags.c_iflag &= !(IXON | ICRNL | BRKINT | INPCK | ISTRIP);
+    terminal.curr_flags.c_oflag &= !(OPOST);
+    terminal.curr_flags.c_oflag |= CS8;
     terminal.curr_flags.set_attr()?;
     Ok(terminal)
 }
