@@ -50,26 +50,26 @@ impl Terminal {
         Ok(Self { orig_flags, curr_flags })
     }
 
-    pub fn enable_flag(&mut self, field: TermioFlagFields, flag: tcflag_t) -> Result<()> {
+    pub fn enable_flag(&mut self, field: TermioFlagFields, flags: tcflag_t) -> Result<()> {
         let curr_field = match field {
             TermioFlagFields::InputFlags   => &mut self.curr_flags.c_iflag,
             TermioFlagFields::OutputFlags  => &mut self.curr_flags.c_oflag,
             TermioFlagFields::ControlFlags => &mut self.curr_flags.c_cflag,
             TermioFlagFields::LocalFlags   => &mut self.curr_flags.c_lflag,
         };
-        *curr_field |= flag as u32;
+        *curr_field |= flags as u32;
         self.curr_flags.set_attr()?;
         Ok(())
     }
 
-    pub fn disable_flag(&mut self, field: TermioFlagFields, flag: tcflag_t) -> Result<()> {
+    pub fn disable_flag(&mut self, field: TermioFlagFields, flags: tcflag_t) -> Result<()> {
         let curr_field = match field {
             TermioFlagFields::InputFlags   => &mut self.curr_flags.c_iflag,
             TermioFlagFields::OutputFlags  => &mut self.curr_flags.c_oflag,
             TermioFlagFields::ControlFlags => &mut self.curr_flags.c_cflag,
             TermioFlagFields::LocalFlags   => &mut self.curr_flags.c_lflag,
         };
-        *curr_field &= !(flag as u32);
+        *curr_field &= !(flags as u32);
         self.curr_flags.set_attr()?;
         Ok(())
     }
@@ -83,7 +83,7 @@ impl Drop for Terminal {
 
 fn main() -> Result<()> {
     let mut terminal = Terminal::new()?;
-    terminal.disable_flag(TermioFlagFields::LocalFlags, libc::ECHO)?;
+    terminal.disable_flag(TermioFlagFields::LocalFlags, libc::ICANON | libc::ECHO)?;
     let mut buf = [0; 1];
     loop {
         let n = io::stdin().read(&mut buf)?;
