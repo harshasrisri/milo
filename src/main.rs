@@ -88,9 +88,17 @@ impl Drop for Terminal {
     }
 }
 
+fn enable_raw_mode(terminal: &mut Terminal) -> Result<()> {
+    terminal.disable_flag(
+        TermioFlagFields::LocalFlags,
+        libc::ECHO | libc::ICANON | libc::ISIG,
+    )?;
+    Ok(())
+}
+
 fn main() -> Result<()> {
     let mut terminal = Terminal::new()?;
-    terminal.disable_flag(TermioFlagFields::LocalFlags, libc::ICANON | libc::ECHO)?;
+    enable_raw_mode(&mut terminal)?;
 
     for byte in io::stdin().bytes() {
         let byte = byte.unwrap();
