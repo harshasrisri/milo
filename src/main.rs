@@ -57,7 +57,7 @@ impl Drop for Terminal {
 
 fn raw_mode_terminal() -> Result<Terminal> {
     let mut terminal = Terminal::new()?;
-    terminal.curr_flags.c_lflag &= !(libc::ECHO | libc::ICANON | libc::ISIG);
+    terminal.curr_flags.c_lflag &= !(libc::ECHO | libc::ICANON | libc::ISIG | libc::IEXTEN);
     terminal.curr_flags.c_iflag &= !(libc::IXON);
     terminal.curr_flags.set_attr()?;
     Ok(terminal)
