@@ -50,6 +50,7 @@ impl Terminal {
 
 impl Drop for Terminal {
     fn drop(&mut self) {
+        // print!("Restoring terminal\r\n");
         self.orig_flags
             .set_attr()
             .expect("Failed to restore terminal state");
@@ -66,23 +67,22 @@ fn raw_mode_terminal() -> Result<Terminal> {
     Ok(terminal)
 }
 
-fn ctrl_key(byte: u8) -> u8 {
-    byte & 0x1F
+fn editor_read_key() -> Result<u8> {
+    io::stdin()
+        .bytes()
+        .next()
+        .expect("Failed to read from stdin")
+}
+
+fn editor_process_keypress() -> Result<bool> {
+    match editor_read_key()? {
+        0x11 => return Ok(false),
+        _key => return Ok(true),
+    }
 }
 
 fn main() -> Result<()> {
     let _terminal = raw_mode_terminal()?;
-
-    for byte in io::stdin().bytes() {
-        let byte = byte.unwrap_or(b'q');
-        if unsafe { iscntrl(byte as i32) != 0 } {
-            print!("{:02x}\r\n", byte as u8);
-        } else {
-            print!("{:02x} ({})\r\n", byte as u8, byte as char);
-        }
-        if byte == ctrl_key(b'q') {
-            return Ok(());
-        }
-    }
-    Err(Error::new(ErrorKind::Other, "Reading from stream failed"))
+    while editor_process_keypress()? {}
+    Ok(())
 }
