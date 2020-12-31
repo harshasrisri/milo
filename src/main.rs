@@ -77,8 +77,8 @@ fn main() -> Result<()> {
             print!("{:02x} ({})\r\n", byte as u8, byte as char);
         }
         if byte == b'q' {
-            break;
+            return Ok(());
         }
     }
-    Ok(())
+    Err(Error::new(ErrorKind::Other, "Reading from stream failed"))
 }
