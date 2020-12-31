@@ -66,6 +66,10 @@ fn raw_mode_terminal() -> Result<Terminal> {
     Ok(terminal)
 }
 
+fn ctrl_key(byte: u8) -> u8 {
+    byte & 0x1F
+}
+
 fn main() -> Result<()> {
     let _terminal = raw_mode_terminal()?;
 
@@ -76,7 +80,7 @@ fn main() -> Result<()> {
         } else {
             print!("{:02x} ({})\r\n", byte as u8, byte as char);
         }
-        if byte == b'q' {
+        if byte == ctrl_key(b'q') {
             return Ok(());
         }
     }
