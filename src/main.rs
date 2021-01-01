@@ -84,6 +84,7 @@ fn editor_process_keypress() -> Result<bool> {
 fn editor_refresh_screen() {
     unsafe {
         libc::write(libc::STDOUT_FILENO, "\x1b[2J".as_ptr() as *const c_void, 4);
+        libc::write(libc::STDOUT_FILENO, "\x1b[H".as_ptr() as *const c_void, 3);
     }
 }
 
