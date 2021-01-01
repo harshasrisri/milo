@@ -1,4 +1,4 @@
-use libc::{c_int, termios as Termios};
+use libc::{c_int, c_void, termios as Termios};
 use libc::{BRKINT, CS8, ECHO, ICANON, ICRNL, IEXTEN, INPCK, ISIG, ISTRIP, IXON, OPOST};
 use std::io::{self, Error, ErrorKind, Read, Result};
 use std::mem;
@@ -81,8 +81,18 @@ fn editor_process_keypress() -> Result<bool> {
     }
 }
 
+fn editor_refresh_screen() {
+    unsafe {
+        libc::write(libc::STDOUT_FILENO, "\x1b[2J".as_ptr() as *const c_void, 4);
+    }
+}
+
 fn main() -> Result<()> {
     let _terminal = raw_mode_terminal()?;
-    while editor_process_keypress()? {}
+    let mut run = true;
+    while run {
+        editor_refresh_screen();
+        run = editor_process_keypress()?;
+    }
     Ok(())
 }
