@@ -95,5 +95,6 @@ fn main() -> Result<()> {
         editor_refresh_screen();
         run = editor_process_keypress()?;
     }
+    editor_refresh_screen();
     Ok(())
 }
