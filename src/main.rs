@@ -67,6 +67,18 @@ fn raw_mode_terminal() -> Result<Terminal> {
     Ok(terminal)
 }
 
+const fn ctrl_key(c: char) -> u8 {
+    c as u8 & 0x1F
+}
+
+const EXIT: u8 = ctrl_key('q');
+
+fn write_terminal(seq: &str, len: usize) {
+    unsafe {
+        libc::write(libc::STDOUT_FILENO, seq.as_ptr() as *const c_void, len);
+    }
+}
+
 fn editor_read_key() -> Result<u8> {
     io::stdin()
         .bytes()
@@ -76,16 +88,24 @@ fn editor_read_key() -> Result<u8> {
 
 fn editor_process_keypress() -> Result<bool> {
     match editor_read_key()? {
-        0x11 => return Ok(false),
+        EXIT => return Ok(false),
         _key => return Ok(true),
     }
 }
 
-fn editor_refresh_screen() {
-    unsafe {
-        libc::write(libc::STDOUT_FILENO, "\x1b[2J".as_ptr() as *const c_void, 4);
-        libc::write(libc::STDOUT_FILENO, "\x1b[H".as_ptr() as *const c_void, 3);
+fn editor_draw_rows() {
+    for _ in 0..24 {
+        write_terminal("~\r\n", 3);
     }
+}
+
+fn editor_refresh_screen() {
+    write_terminal("\x1b[2J", 4);
+    write_terminal("\x1b[H", 3);
+
+    editor_draw_rows();
+
+    write_terminal("\x1b[H", 3);
 }
 
 fn main() -> Result<()> {
