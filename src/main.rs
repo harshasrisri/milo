@@ -32,39 +32,38 @@ impl TermiosAttrExt for Termios {
     }
 }
 
-struct Terminal {
-    orig_flags: Termios,
-    curr_flags: Termios,
+struct EditorConfig {
+    orig_termios: Termios,
+    curr_termios: Termios,
 }
 
-impl Terminal {
+impl EditorConfig {
     pub fn new() -> Result<Self> {
         let mut orig_flags = unsafe { mem::zeroed::<Termios>() };
         orig_flags.get_attr()?;
         Ok(Self {
-            orig_flags,
-            curr_flags: orig_flags.clone(),
+            orig_termios: orig_flags,
+            curr_termios: orig_flags.clone(),
         })
     }
 }
 
-impl Drop for Terminal {
+impl Drop for EditorConfig {
     fn drop(&mut self) {
         // print!("Restoring terminal\r\n");
-        self.orig_flags
+        self.orig_termios
             .set_attr()
             .expect("Failed to restore terminal state");
     }
 }
 
-fn raw_mode_terminal() -> Result<Terminal> {
-    let mut terminal = Terminal::new()?;
-    terminal.curr_flags.c_lflag &= !(ECHO | ICANON | ISIG | IEXTEN);
-    terminal.curr_flags.c_iflag &= !(IXON | ICRNL | BRKINT | INPCK | ISTRIP);
-    terminal.curr_flags.c_oflag &= !(OPOST);
-    terminal.curr_flags.c_oflag |= CS8;
-    terminal.curr_flags.set_attr()?;
-    Ok(terminal)
+fn enable_raw_mode(terminal: &mut Termios) -> Result<()> {
+    terminal.c_lflag &= !(ECHO | ICANON | ISIG | IEXTEN);
+    terminal.c_iflag &= !(IXON | ICRNL | BRKINT | INPCK | ISTRIP);
+    terminal.c_oflag &= !(OPOST);
+    terminal.c_oflag |= CS8;
+    terminal.set_attr()?;
+    Ok(())
 }
 
 const fn ctrl_key(c: char) -> u8 {
@@ -109,12 +108,16 @@ fn editor_refresh_screen() {
 }
 
 fn main() -> Result<()> {
-    let _terminal = raw_mode_terminal()?;
     let mut run = true;
+    let mut editor = EditorConfig::new()?;
+
+    enable_raw_mode(&mut editor.curr_termios)?;
+
     while run {
         editor_refresh_screen();
         run = editor_process_keypress()?;
     }
+
     editor_refresh_screen();
     Ok(())
 }
