@@ -64,7 +64,12 @@ impl EditorConfig {
 
     pub fn get_window_size(&mut self) -> Result<()> {
         unsafe {
-            if ioctl(STDOUT_FILENO, TIOCGWINSZ, &mut self.window_size) == -1 || self.window_size.ws_col == 0 {
+            if true || ioctl(STDOUT_FILENO, TIOCGWINSZ, &mut self.window_size) == -1 || self.window_size.ws_col == 0 {
+                let botright = "\x1b[999C\x1b[999B";
+                if write_terminal(botright) != botright.len() as i32 {
+                    return Err(Error::new(ErrorKind::Other, "Can't get window size"));
+                }
+                editor_read_key()?;
                 return Err(Error::new(ErrorKind::Other, "Can't get window size"));
             } else {
                 Ok(())
@@ -76,6 +81,8 @@ impl EditorConfig {
 impl Drop for EditorConfig {
     fn drop(&mut self) {
         // print!("Restoring terminal\r\n");
+        write_terminal("\x1b[2J");
+        write_terminal("\x1b[H");
         self.orig_termios
             .set_attr()
             .expect("Failed to restore terminal state");
@@ -88,9 +95,9 @@ const fn ctrl_key(c: char) -> u8 {
 
 const EXIT: u8 = ctrl_key('q');
 
-fn write_terminal(seq: &str, len: usize) {
+fn write_terminal(seq: &str) -> c_int {
     unsafe {
-        libc::write(STDOUT_FILENO, seq.as_ptr() as *const c_void, len);
+        libc::write(STDOUT_FILENO, seq.as_ptr() as *const c_void, seq.len()) as c_int
     }
 }
 
@@ -110,17 +117,17 @@ fn editor_process_keypress() -> Result<bool> {
 
 fn editor_draw_rows(e: &mut EditorConfig) {
     for _ in 0..e.window_size.ws_col {
-        write_terminal("~\r\n", 3);
+        write_terminal("~\r\n");
     }
 }
 
 fn editor_refresh_screen(e: &mut EditorConfig) {
-    write_terminal("\x1b[2J", 4);
-    write_terminal("\x1b[H", 3);
+    write_terminal("\x1b[2J");
+    write_terminal("\x1b[H");
 
     editor_draw_rows(e);
 
-    write_terminal("\x1b[H", 3);
+    write_terminal("\x1b[H");
 }
 
 fn main() -> Result<()> {
