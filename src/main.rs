@@ -69,8 +69,7 @@ impl EditorConfig {
                 if write_terminal(botright) != botright.len() as i32 {
                     return Err(Error::new(ErrorKind::Other, "Can't get window size"));
                 }
-                editor_read_key()?;
-                return Err(Error::new(ErrorKind::Other, "Can't get window size"));
+                get_cursor_position()
             } else {
                 Ok(())
             }
@@ -99,6 +98,22 @@ fn write_terminal(seq: &str) -> c_int {
     unsafe {
         libc::write(STDOUT_FILENO, seq.as_ptr() as *const c_void, seq.len()) as c_int
     }
+}
+
+fn get_cursor_position() -> Result<()> {
+    write_terminal("\x1b[6n");
+    print!("\r\n");
+    while let Ok(c) = editor_read_key() {
+        if unsafe { iscntrl(c as c_int) } > 0 {
+            print!("{}\r\n", c);
+        } else {
+            print!("{} ({})\r\n", c, c as char);
+        }
+        if c == EXIT {
+            break;
+        }
+    }
+    Err(Error::new(ErrorKind::Other, "Can't get window size"))
 }
 
 fn editor_read_key() -> Result<u8> {
