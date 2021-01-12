@@ -1,5 +1,8 @@
 use libc::{c_int, c_ulong, c_void, termios as Termios, winsize as WinSize};
-use libc::{BRKINT, CS8, ECHO, ICANON, ICRNL, IEXTEN, INPCK, ISIG, ISTRIP, IXON, OPOST, STDIN_FILENO, STDOUT_FILENO, TIOCGWINSZ};
+use libc::{
+    BRKINT, CS8, ECHO, ICANON, ICRNL, IEXTEN, INPCK, ISIG, ISTRIP, IXON, OPOST, STDIN_FILENO,
+    STDOUT_FILENO, TIOCGWINSZ,
+};
 use std::io::{self, Error, ErrorKind, Read, Result};
 use std::mem;
 
@@ -17,19 +20,21 @@ trait TermiosAttrExt {
 
 impl TermiosAttrExt for Termios {
     fn get_attr(&mut self) -> Result<()> {
-        Ok(unsafe {
+        unsafe {
             if tcgetattr(STDIN_FILENO, self) != 0 {
                 return Err(Error::new(ErrorKind::Other, "Can't get term attributes"));
             }
-        })
+        }
+        Ok(())
     }
 
     fn set_attr(&self) -> Result<()> {
-        Ok(unsafe {
+        unsafe {
             if tcsetattr(STDIN_FILENO, libc::TCSAFLUSH, self) != 0 {
                 return Err(Error::new(ErrorKind::Other, "Can't get term attributes"));
             }
-        })
+        }
+        Ok(())
     }
 }
 
@@ -48,7 +53,7 @@ impl EditorConfig {
 
         Ok(Self {
             orig_termios: orig_flags,
-            curr_termios: orig_flags.clone(),
+            curr_termios: orig_flags,
             window_size: ws,
         })
     }
@@ -64,7 +69,9 @@ impl EditorConfig {
 
     pub fn get_window_size(&mut self) -> Result<()> {
         unsafe {
-            if ioctl(STDOUT_FILENO, TIOCGWINSZ, &mut self.window_size) == -1 || self.window_size.ws_col == 0 {
+            if ioctl(STDOUT_FILENO, TIOCGWINSZ, &mut self.window_size) == -1
+                || self.window_size.ws_col == 0
+            {
                 let botright = "\x1b[999C\x1b[999B";
                 if write_terminal(botright) != botright.len() as i32 {
                     return Err(Error::new(ErrorKind::Other, "Can't get window size"));
@@ -125,9 +132,7 @@ const fn ctrl_key(c: char) -> u8 {
 const EXIT: u8 = ctrl_key('q');
 
 fn write_terminal(seq: &str) -> c_int {
-    unsafe {
-        libc::write(STDOUT_FILENO, seq.as_ptr() as *const c_void, seq.len()) as c_int
-    }
+    unsafe { libc::write(STDOUT_FILENO, seq.as_ptr() as *const c_void, seq.len()) as c_int }
 }
 
 fn editor_read_key() -> Result<u8> {
@@ -145,9 +150,13 @@ fn editor_process_keypress() -> Result<bool> {
 }
 
 fn editor_draw_rows(e: &mut EditorConfig) {
-    for _ in 0..e.window_size.ws_row {
-        write_terminal("~\r\n");
-    }
+    write_terminal(
+        std::iter::repeat("~")
+            .take(e.window_size.ws_row as usize)
+            .collect::<Vec<_>>()
+            .join("\r\n")
+            .as_str(),
+    );
 }
 
 fn editor_refresh_screen(e: &mut EditorConfig) {
