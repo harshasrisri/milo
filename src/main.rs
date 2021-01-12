@@ -114,6 +114,15 @@ impl EditorConfig {
 
         Ok(())
     }
+
+    fn append(&mut self, content: &str) {
+        self.term_buffer.push_str(content);
+    }
+
+    fn flush(&mut self) {
+        write_terminal(self.term_buffer.as_str());
+        self.term_buffer.clear();
+    }
 }
 
 impl Drop for EditorConfig {
