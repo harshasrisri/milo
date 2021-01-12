@@ -155,8 +155,8 @@ fn editor_read_key() -> Result<u8> {
 
 fn editor_process_keypress() -> Result<bool> {
     match editor_read_key()? {
-        EXIT => return Ok(false),
-        _key => return Ok(true),
+        EXIT => Ok(false),
+        _key => Ok(true),
     }
 }
 
@@ -164,6 +164,7 @@ fn editor_draw_rows(e: &mut EditorConfig) {
     e.append(
         std::iter::repeat("~")
             .take(e.window_size.ws_row as usize)
+            .map(|buf| { buf.to_string().push_str("\x1b[K"); buf })
             .collect::<Vec<_>>()
             .join("\r\n")
             .as_str(),
@@ -172,7 +173,7 @@ fn editor_draw_rows(e: &mut EditorConfig) {
 
 fn editor_refresh_screen(e: &mut EditorConfig) {
     e.append("\x1b[?25l");
-    e.append("\x1b[2J");
+    // e.append("\x1b[2J");
     e.append("\x1b[H");
 
     editor_draw_rows(e);
