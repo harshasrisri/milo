@@ -80,8 +80,8 @@ impl EditorConfig {
 impl Drop for EditorConfig {
     fn drop(&mut self) {
         // print!("Restoring terminal\r\n");
-        write_terminal("\x1b[2J");
-        write_terminal("\x1b[H");
+        // write_terminal("\x1b[2J");
+        // write_terminal("\x1b[H");
         self.orig_termios
             .set_attr()
             .expect("Failed to restore terminal state");
@@ -103,16 +103,15 @@ fn write_terminal(seq: &str) -> c_int {
 fn get_cursor_position() -> Result<()> {
     write_terminal("\x1b[6n");
     print!("\r\n");
+    let mut cur_pos_buf = Vec::new();
     while let Ok(c) = editor_read_key() {
-        if unsafe { iscntrl(c as c_int) } > 0 {
-            print!("{}\r\n", c);
-        } else {
-            print!("{} ({})\r\n", c, c as char);
-        }
-        if c == EXIT {
+        if c == b'R' {
             break;
+        } else {
+            cur_pos_buf.push(c);
         }
     }
+    print!("terminal size: {:?}\r\n", cur_pos_buf);
     Err(Error::new(ErrorKind::Other, "Can't get window size"))
 }
 
