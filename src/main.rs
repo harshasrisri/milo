@@ -64,7 +64,7 @@ impl EditorConfig {
 
     pub fn get_window_size(&mut self) -> Result<()> {
         unsafe {
-            if true || ioctl(STDOUT_FILENO, TIOCGWINSZ, &mut self.window_size) == -1 || self.window_size.ws_col == 0 {
+            if ioctl(STDOUT_FILENO, TIOCGWINSZ, &mut self.window_size) == -1 || self.window_size.ws_col == 0 {
                 let botright = "\x1b[999C\x1b[999B";
                 if write_terminal(botright) != botright.len() as i32 {
                     return Err(Error::new(ErrorKind::Other, "Can't get window size"));
@@ -95,13 +95,15 @@ impl EditorConfig {
             .filter_map(|buf| buf.parse().ok())
             .collect::<Vec<u16>>();
 
-        editor_read_key()?;
+        if dimensions.len() != 2 {
+            return Err(Error::new(ErrorKind::Other, "Can't get window size"));
+        }
 
         print!("terminal size: {} x {}\r\n", dimensions[0], dimensions[1]);
         self.window_size.ws_row = dimensions[0];
         self.window_size.ws_col = dimensions[1];
 
-        Err(Error::new(ErrorKind::Other, "Can't get window size"))
+        Ok(())
     }
 }
 
@@ -143,7 +145,7 @@ fn editor_process_keypress() -> Result<bool> {
 }
 
 fn editor_draw_rows(e: &mut EditorConfig) {
-    for _ in 0..e.window_size.ws_col {
+    for _ in 0..e.window_size.ws_row {
         write_terminal("~\r\n");
     }
 }
@@ -169,6 +171,5 @@ fn main() -> Result<()> {
         run = editor_process_keypress()?;
     }
 
-    editor_refresh_screen(&mut editor);
     Ok(())
 }
