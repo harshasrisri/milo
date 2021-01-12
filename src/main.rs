@@ -161,7 +161,7 @@ fn editor_process_keypress() -> Result<bool> {
 }
 
 fn editor_draw_rows(e: &mut EditorConfig) {
-    write_terminal(
+    e.append(
         std::iter::repeat("~")
             .take(e.window_size.ws_row as usize)
             .collect::<Vec<_>>()
@@ -171,12 +171,13 @@ fn editor_draw_rows(e: &mut EditorConfig) {
 }
 
 fn editor_refresh_screen(e: &mut EditorConfig) {
-    write_terminal("\x1b[2J");
-    write_terminal("\x1b[H");
+    e.append("\x1b[2J");
+    e.append("\x1b[H");
 
     editor_draw_rows(e);
 
-    write_terminal("\x1b[H");
+    e.append("\x1b[H");
+    e.flush();
 }
 
 fn main() -> Result<()> {
