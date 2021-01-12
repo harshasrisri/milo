@@ -69,11 +69,39 @@ impl EditorConfig {
                 if write_terminal(botright) != botright.len() as i32 {
                     return Err(Error::new(ErrorKind::Other, "Can't get window size"));
                 }
-                get_cursor_position()
+                self.get_cursor_position()
             } else {
                 Ok(())
             }
         }
+    }
+
+    fn get_cursor_position(&mut self) -> Result<()> {
+        write_terminal("\x1b[6n");
+        print!("\r\n");
+
+        let mut cursor_buf = Vec::new();
+        while let Ok(c) = editor_read_key() {
+            if c == b'R' {
+                break;
+            } else {
+                cursor_buf.push(c);
+            }
+        }
+
+        let dimensions = cursor_buf[2..]
+            .split(|&c| c == b';')
+            .filter_map(|buf| std::str::from_utf8(buf).ok())
+            .filter_map(|buf| buf.parse().ok())
+            .collect::<Vec<u16>>();
+
+        editor_read_key()?;
+
+        print!("terminal size: {} x {}\r\n", dimensions[0], dimensions[1]);
+        self.window_size.ws_row = dimensions[0];
+        self.window_size.ws_col = dimensions[1];
+
+        Err(Error::new(ErrorKind::Other, "Can't get window size"))
     }
 }
 
@@ -98,21 +126,6 @@ fn write_terminal(seq: &str) -> c_int {
     unsafe {
         libc::write(STDOUT_FILENO, seq.as_ptr() as *const c_void, seq.len()) as c_int
     }
-}
-
-fn get_cursor_position() -> Result<()> {
-    write_terminal("\x1b[6n");
-    print!("\r\n");
-    let mut cur_pos_buf = Vec::new();
-    while let Ok(c) = editor_read_key() {
-        if c == b'R' {
-            break;
-        } else {
-            cur_pos_buf.push(c);
-        }
-    }
-    print!("terminal size: {:?}\r\n", cur_pos_buf);
-    Err(Error::new(ErrorKind::Other, "Can't get window size"))
 }
 
 fn editor_read_key() -> Result<u8> {
