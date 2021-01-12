@@ -171,12 +171,14 @@ fn editor_draw_rows(e: &mut EditorConfig) {
 }
 
 fn editor_refresh_screen(e: &mut EditorConfig) {
+    e.append("\x1b[?25l");
     e.append("\x1b[2J");
     e.append("\x1b[H");
 
     editor_draw_rows(e);
 
     e.append("\x1b[H");
+    e.append("\x1b[?25h");
     e.flush();
 }
 
