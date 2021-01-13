@@ -161,10 +161,27 @@ fn editor_process_keypress() -> Result<bool> {
 }
 
 fn editor_draw_rows(e: &mut EditorConfig) {
+    let mut banner = String::new();
+    banner.push_str(env!("CARGO_PKG_NAME"));
+    banner.push_str(" -- version ");
+    banner.push_str(env!("CARGO_PKG_VERSION"));
+    banner.truncate(e.window_size.ws_col as usize);
+
     e.append(
         std::iter::repeat("~")
             .take(e.window_size.ws_row as usize)
-            .map(|buf| { buf.to_string().push_str("\x1b[K"); buf })
+            .enumerate()
+            .map(|(n, buf)| {
+                if n == e.window_size.ws_row as usize / 3 {
+                    banner.clone()
+                } else {
+                    buf.to_string()
+                }
+            })
+            .map(|mut buf| {
+                buf.push_str("\x1b[K");
+                buf
+            })
             .collect::<Vec<_>>()
             .join("\r\n")
             .as_str(),
