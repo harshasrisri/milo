@@ -161,11 +161,21 @@ fn editor_process_keypress() -> Result<bool> {
 }
 
 fn editor_draw_rows(e: &mut EditorConfig) {
-    let mut banner = String::new();
-    banner.push_str(env!("CARGO_PKG_NAME"));
-    banner.push_str(" -- version ");
-    banner.push_str(env!("CARGO_PKG_VERSION"));
+    let mut banner = format!(
+        "{} -- version {}",
+        env!("CARGO_PKG_NAME"),
+        env!("CARGO_PKG_VERSION")
+    );
     banner.truncate(e.window_size.ws_col as usize);
+    let padding = (e.window_size.ws_col as usize - banner.len()) / 2;
+    let banner = if padding == 0 {
+        banner
+    } else {
+        let mut centered = "~".to_string();
+        centered.extend(std::iter::repeat(" ").take(padding - 1));
+        centered.push_str(banner.as_str());
+        centered
+    };
 
     e.append(
         std::iter::repeat("~")
