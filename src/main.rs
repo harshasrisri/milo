@@ -157,9 +157,24 @@ fn editor_read_key() -> Result<u8> {
         .expect("Failed to read from stdin")
 }
 
-fn editor_process_keypress() -> Result<bool> {
-    match editor_read_key()? {
+fn editor_move_cursor(e: &mut EditorConfig, key: u8) {
+    match key {
+        b'w' => e.cursor_row -= 1,
+        b's' => e.cursor_row += 1,
+        b'a' => e.cursor_col -= 1,
+        b'd' => e.cursor_col += 1,
+        _ => {}
+    }
+}
+
+fn editor_process_keypress(e: &mut EditorConfig) -> Result<bool> {
+    let k = editor_read_key()?;
+    match k {
         EXIT => Ok(false),
+        b'w' | b'a' | b's' | b'd' => {
+            editor_move_cursor(e, k);
+            Ok(true)
+        }
         _key => Ok(true),
     }
 }
@@ -223,7 +238,7 @@ fn main() -> Result<()> {
 
     while run {
         editor_refresh_screen(&mut editor);
-        run = editor_process_keypress()?;
+        run = editor_process_keypress(&mut editor)?;
     }
 
     Ok(())
