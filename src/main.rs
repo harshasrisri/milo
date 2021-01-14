@@ -43,6 +43,8 @@ struct EditorConfig {
     curr_termios: Termios,
     window_size: WinSize,
     term_buffer: String,
+    cur_x: usize,
+    cur_y: usize,
 }
 
 impl EditorConfig {
@@ -57,6 +59,8 @@ impl EditorConfig {
             curr_termios: orig_flags,
             window_size: ws,
             term_buffer: String::new(),
+            cur_x: 0,
+            cur_y: 0,
         })
     }
 
