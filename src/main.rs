@@ -43,8 +43,8 @@ struct EditorConfig {
     curr_termios: Termios,
     window_size: WinSize,
     term_buffer: String,
-    cur_x: usize,
-    cur_y: usize,
+    cursor_col: usize,
+    cursor_row: usize,
 }
 
 impl EditorConfig {
@@ -59,8 +59,8 @@ impl EditorConfig {
             curr_termios: orig_flags,
             window_size: ws,
             term_buffer: String::new(),
-            cur_x: 0,
-            cur_y: 0,
+            cursor_col: 0,
+            cursor_row: 0,
         })
     }
 
@@ -209,7 +209,7 @@ fn editor_refresh_screen(e: &mut EditorConfig) {
 
     editor_draw_rows(e);
 
-    e.append("\x1b[H");
+    e.append(format!("\x1b[{};{}H", e.cursor_row + 1, e.cursor_col + 1).as_str());
     e.append("\x1b[?25h");
     e.flush();
 }
