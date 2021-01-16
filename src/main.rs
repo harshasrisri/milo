@@ -1,7 +1,7 @@
 use libc::{c_int, c_ulong, c_void, termios as Termios, winsize as WinSize};
 use libc::{
     BRKINT, CS8, ECHO, ICANON, ICRNL, IEXTEN, INPCK, ISIG, ISTRIP, IXON, OPOST, STDIN_FILENO,
-    STDOUT_FILENO, TIOCGWINSZ,
+    STDOUT_FILENO, TIOCGWINSZ, VMIN, VTIME,
 };
 use std::io::{self, Error, ErrorKind, Read, Result};
 use std::mem;
@@ -69,6 +69,8 @@ impl EditorConfig {
         self.curr_termios.c_iflag &= !(IXON | ICRNL | BRKINT | INPCK | ISTRIP);
         self.curr_termios.c_oflag &= !(OPOST);
         self.curr_termios.c_oflag |= CS8;
+        self.curr_termios.c_cc[VMIN] = 0;
+        self.curr_termios.c_cc[VTIME] = 1;
         self.curr_termios.set_attr()?;
         Ok(())
     }
@@ -150,22 +152,40 @@ fn write_terminal(seq: &str) -> c_int {
 }
 
 fn editor_read_key() -> Result<u8> {
-    let read_key = || io::stdin().bytes().next().expect("Can't read input");
-    let c = read_key()?;
-    Ok(if c == b'\x1b' {
-        if b'[' == read_key()? {
-            match read_key()? {
+    let read_key = || io::stdin().bytes().next();
+    let key = std::iter::repeat_with(read_key)
+        .skip_while(|c| c.is_none())
+        .flatten()
+        .next()
+        .unwrap()?;
+
+    Ok(if key != b'\x1b' {
+        key
+    } else {
+        let (seq0, seq1) = if let Some(res) = read_key() {
+            (
+                res?,
+                if let Some(res) = read_key() {
+                    res?
+                } else {
+                    return Ok(key);
+                },
+            )
+        } else {
+            return Ok(key);
+        };
+
+        if seq0 == b'[' {
+            match seq1 {
                 b'A' => b'w',
                 b'B' => b's',
                 b'C' => b'd',
                 b'D' => b'a',
-                _ => b'q',
+                _ => seq1,
             }
         } else {
-            b'\x1b'
+            key
         }
-    } else {
-        c
     })
 }
 
