@@ -112,7 +112,6 @@ impl EditorConfig {
             return Err(Error::new(ErrorKind::Other, "Can't get window size"));
         }
 
-        print!("terminal size: {} x {}\r\n", dimensions[0], dimensions[1]);
         self.window_size.ws_row = dimensions[0];
         self.window_size.ws_col = dimensions[1];
 
@@ -132,8 +131,8 @@ impl EditorConfig {
 impl Drop for EditorConfig {
     fn drop(&mut self) {
         // print!("Restoring terminal\r\n");
-        // write_terminal("\x1b[2J");
-        // write_terminal("\x1b[H");
+        write_terminal("\x1b[2J");
+        write_terminal("\x1b[H");
         self.orig_termios
             .set_attr()
             .expect("Failed to restore terminal state");
@@ -151,10 +150,23 @@ fn write_terminal(seq: &str) -> c_int {
 }
 
 fn editor_read_key() -> Result<u8> {
-    io::stdin()
-        .bytes()
-        .next()
-        .expect("Failed to read from stdin")
+    let read_key = || io::stdin().bytes().next().expect("Can't read input");
+    let c = read_key()?;
+    Ok(if c == b'\x1b' {
+        if b'[' == read_key()? {
+            match read_key()? {
+                b'A' => b'w',
+                b'B' => b's',
+                b'C' => b'd',
+                b'D' => b'a',
+                _ => b'q',
+            }
+        } else {
+            b'\x1b'
+        }
+    } else {
+        c
+    })
 }
 
 fn editor_move_cursor(e: &mut EditorConfig, key: u8) {
