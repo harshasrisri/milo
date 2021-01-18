@@ -193,27 +193,28 @@ fn editor_read_key() -> Result<Key> {
         } else {
             Key::AlphaNum(key)
         }
+    } else if key < 32 {
+        Key::Control((key + 64) as char)
     } else {
-        if key < 32 {
-            Key::Control((key + 64) as char)
-        } else {
-            Key::AlphaNum(key)
-        }
+        Key::AlphaNum(key)
     })
 }
 
 fn editor_move_cursor(e: &mut EditorConfig, motion: Motion) {
     match motion {
-        Motion::UP => e.cursor_row -= 1,
-        Motion::DOWN => e.cursor_row += 1,
-        Motion::RIGHT => e.cursor_col += 1,
-        Motion::LEFT => e.cursor_col -= 1,
+        Motion::UP => e.cursor_row = e.cursor_row.saturating_sub(1),
+        Motion::LEFT => e.cursor_col = e.cursor_col.saturating_sub(1),
+        Motion::DOWN => {
+            e.cursor_row = std::cmp::min(e.window_size.ws_row as usize - 1, e.cursor_row + 1)
+        }
+        Motion::RIGHT => {
+            e.cursor_col = std::cmp::min(e.window_size.ws_col as usize - 1, e.cursor_col + 1)
+        }
     }
 }
 
 fn editor_process_keypress(e: &mut EditorConfig) -> Result<bool> {
     let key = editor_read_key()?;
-    eprintln!("Read Key - {:?}\r\n", key);
     match key {
         Key::Control('Q') => Ok(false),
         Key::Move(motion) => {
