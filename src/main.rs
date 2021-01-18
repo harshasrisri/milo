@@ -96,11 +96,11 @@ impl EditorConfig {
         print!("\r\n");
 
         let mut cursor_buf = Vec::new();
-        while let Ok(c) = editor_read_key() {
-            if c == b'R' {
-                break;
-            } else {
-                cursor_buf.push(c);
+        while let Ok(key) = editor_read_key() {
+            match key {
+                Key::AlphaNum(b'R') => break,
+                Key::AlphaNum(c) => cursor_buf.push(c),
+                _ => panic!("Unexpected input read"),
             }
         }
 
@@ -141,17 +141,26 @@ impl Drop for EditorConfig {
     }
 }
 
-const fn ctrl_key(c: char) -> u8 {
-    c as u8 & 0x1F
-}
-
-const EXIT: u8 = ctrl_key('q');
-
 fn write_terminal(seq: &str) -> c_int {
     unsafe { libc::write(STDOUT_FILENO, seq.as_ptr() as *const c_void, seq.len()) as c_int }
 }
 
-fn editor_read_key() -> Result<u8> {
+#[derive(Debug)]
+enum Motion {
+    UP,
+    DOWN,
+    LEFT,
+    RIGHT,
+}
+
+#[derive(Debug)]
+enum Key {
+    AlphaNum(u8),
+    Move(Motion),
+    Control(char),
+}
+
+fn editor_read_key() -> Result<Key> {
     let read_key = || io::stdin().bytes().next();
     let key = std::iter::repeat_with(read_key)
         .skip_while(|c| c.is_none())
@@ -159,52 +168,56 @@ fn editor_read_key() -> Result<u8> {
         .next()
         .unwrap()?;
 
-    Ok(if key != b'\x1b' {
-        key
-    } else {
+    Ok(if key == b'\x1b' {
         let (seq0, seq1) = if let Some(res) = read_key() {
             (
                 res?,
                 if let Some(res) = read_key() {
                     res?
                 } else {
-                    return Ok(key);
+                    return Ok(Key::AlphaNum(key));
                 },
             )
         } else {
-            return Ok(key);
+            return Ok(Key::AlphaNum(key));
         };
 
         if seq0 == b'[' {
             match seq1 {
-                b'A' => b'w',
-                b'B' => b's',
-                b'C' => b'd',
-                b'D' => b'a',
-                _ => seq1,
+                b'A' => Key::Move(Motion::UP),
+                b'B' => Key::Move(Motion::DOWN),
+                b'C' => Key::Move(Motion::RIGHT),
+                b'D' => Key::Move(Motion::LEFT),
+                _ => panic!("Undefined Escape Sequence Encountered - \\x1b[{}", seq1),
             }
         } else {
-            key
+            Key::AlphaNum(key)
+        }
+    } else {
+        if key < 32 {
+            Key::Control((key + 64) as char)
+        } else {
+            Key::AlphaNum(key)
         }
     })
 }
 
-fn editor_move_cursor(e: &mut EditorConfig, key: u8) {
-    match key {
-        b'w' => e.cursor_row -= 1,
-        b's' => e.cursor_row += 1,
-        b'a' => e.cursor_col -= 1,
-        b'd' => e.cursor_col += 1,
-        _ => {}
+fn editor_move_cursor(e: &mut EditorConfig, motion: Motion) {
+    match motion {
+        Motion::UP => e.cursor_row -= 1,
+        Motion::DOWN => e.cursor_row += 1,
+        Motion::RIGHT => e.cursor_col += 1,
+        Motion::LEFT => e.cursor_col -= 1,
     }
 }
 
 fn editor_process_keypress(e: &mut EditorConfig) -> Result<bool> {
-    let k = editor_read_key()?;
-    match k {
-        EXIT => Ok(false),
-        b'w' | b'a' | b's' | b'd' => {
-            editor_move_cursor(e, k);
+    let key = editor_read_key()?;
+    eprintln!("Read Key - {:?}\r\n", key);
+    match key {
+        Key::Control('Q') => Ok(false),
+        Key::Move(motion) => {
+            editor_move_cursor(e, motion);
             Ok(true)
         }
         _key => Ok(true),
