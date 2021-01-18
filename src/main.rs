@@ -147,10 +147,12 @@ fn write_terminal(seq: &str) -> c_int {
 
 #[derive(Debug)]
 enum Motion {
-    UP,
-    DOWN,
-    LEFT,
-    RIGHT,
+    Up,
+    Down,
+    Left,
+    Right,
+    PgUp,
+    PgDn,
 }
 
 #[derive(Debug)]
@@ -169,26 +171,47 @@ fn editor_read_key() -> Result<Key> {
         .unwrap()?;
 
     Ok(if key == b'\x1b' {
-        let (seq0, seq1) = if let Some(res) = read_key() {
-            (
-                res?,
-                if let Some(res) = read_key() {
-                    res?
-                } else {
-                    return Ok(Key::AlphaNum(key));
-                },
-            )
+        let seq0 = if let Some(res) = read_key() {
+            res?
         } else {
             return Ok(Key::AlphaNum(key));
         };
 
         if seq0 == b'[' {
+            let seq1 = if let Some(res) = read_key() {
+                res?
+            } else {
+                return Ok(Key::AlphaNum(key));
+            };
+
             match seq1 {
-                b'A' => Key::Move(Motion::UP),
-                b'B' => Key::Move(Motion::DOWN),
-                b'C' => Key::Move(Motion::RIGHT),
-                b'D' => Key::Move(Motion::LEFT),
-                _ => panic!("Undefined Escape Sequence Encountered - \\x1b[{}", seq1),
+                b'A' => Key::Move(Motion::Up),
+                b'B' => Key::Move(Motion::Down),
+                b'C' => Key::Move(Motion::Right),
+                b'D' => Key::Move(Motion::Left),
+                b'0'..=b'9' => {
+                    let seq2 = if let Some(res) = read_key() {
+                        res?
+                    } else {
+                        return Ok(Key::AlphaNum(key));
+                    };
+                    if seq2 == b'~' {
+                        match seq1 {
+                            b'5' => Key::Move(Motion::PgUp),
+                            b'6' => Key::Move(Motion::PgDn),
+                            _ => panic!(
+                                "Unknown Escape Sequence Encountered - \\x1b[{}{}",
+                                seq1, seq2
+                            ),
+                        }
+                    } else {
+                        panic!(
+                            "Unknown Escape Sequence Encountered - \\x1b[{}{}",
+                            seq1, seq2
+                        );
+                    }
+                }
+                _ => panic!("Unknown Escape Sequence Encountered - \\x1b[{}", seq1),
             }
         } else {
             Key::AlphaNum(key)
@@ -202,13 +225,20 @@ fn editor_read_key() -> Result<Key> {
 
 fn editor_move_cursor(e: &mut EditorConfig, motion: Motion) {
     match motion {
-        Motion::UP => e.cursor_row = e.cursor_row.saturating_sub(1),
-        Motion::LEFT => e.cursor_col = e.cursor_col.saturating_sub(1),
-        Motion::DOWN => {
+        Motion::Up => e.cursor_row = e.cursor_row.saturating_sub(1),
+        Motion::Left => e.cursor_col = e.cursor_col.saturating_sub(1),
+        Motion::Down => {
             e.cursor_row = std::cmp::min(e.window_size.ws_row as usize - 1, e.cursor_row + 1)
         }
-        Motion::RIGHT => {
+        Motion::Right => {
             e.cursor_col = std::cmp::min(e.window_size.ws_col as usize - 1, e.cursor_col + 1)
+        }
+        Motion::PgUp => e.cursor_row = e.cursor_row.saturating_sub(e.window_size.ws_row as usize),
+        Motion::PgDn => {
+            e.cursor_row = std::cmp::min(
+                e.window_size.ws_row as usize - 1,
+                e.cursor_col + e.window_size.ws_row as usize,
+            )
         }
     }
 }
