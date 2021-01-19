@@ -155,6 +155,8 @@ enum Motion {
     Right,
     PgUp,
     PgDn,
+    Home,
+    End,
 }
 
 #[derive(Debug)]
@@ -166,7 +168,6 @@ enum Key {
 
 fn editor_read_key(e: &mut EditorState) -> Result<Key> {
     let read_key = || io::stdin().bytes().next();
-    // populate key_buffer from input and check length to flush old content
     let key = if let Some(pending_key) = e.key_buffer.pop() {
         pending_key
     } else {
@@ -178,7 +179,8 @@ fn editor_read_key(e: &mut EditorState) -> Result<Key> {
     };
 
     Ok(if key == b'\x1b' {
-        let seq = e.key_buffer
+        let seq = e
+            .key_buffer
             .iter()
             .rev()
             .map(|byte| Some(Ok(*byte)))
@@ -189,12 +191,25 @@ fn editor_read_key(e: &mut EditorState) -> Result<Key> {
 
         let (key, pending) = match seq.as_slice() {
             [None, None, None] => (Key::AlphaNum(key), None),
+
             [Some(b'['), Some(b'A'), pending] => (Key::Move(Motion::Up), *pending),
             [Some(b'['), Some(b'B'), pending] => (Key::Move(Motion::Down), *pending),
             [Some(b'['), Some(b'C'), pending] => (Key::Move(Motion::Right), *pending),
             [Some(b'['), Some(b'D'), pending] => (Key::Move(Motion::Left), *pending),
+
             [Some(b'['), Some(b'5'), Some(b'~')] => (Key::Move(Motion::PgUp), None),
             [Some(b'['), Some(b'6'), Some(b'~')] => (Key::Move(Motion::PgDn), None),
+
+            [Some(b'['), Some(b'1'), Some(b'~')] => (Key::Move(Motion::Home), None),
+            [Some(b'['), Some(b'7'), Some(b'~')] => (Key::Move(Motion::Home), None),
+            [Some(b'['), Some(b'O'), Some(b'H')] => (Key::Move(Motion::Home), None),
+            [Some(b'['), Some(b'H'), pending] => (Key::Move(Motion::Home), *pending),
+
+            [Some(b'['), Some(b'4'), Some(b'~')] => (Key::Move(Motion::End), None),
+            [Some(b'['), Some(b'8'), Some(b'~')] => (Key::Move(Motion::End), None),
+            [Some(b'['), Some(b'O'), Some(b'F')] => (Key::Move(Motion::End), None),
+            [Some(b'['), Some(b'F'), pending] => (Key::Move(Motion::End), *pending),
+
             _ => {
                 e.key_buffer.clear();
                 e.key_buffer.extend(seq.iter().rev().filter_map(|&k| k));
@@ -231,6 +246,8 @@ fn editor_move_cursor(e: &mut EditorState, motion: Motion) {
                 e.cursor_col + e.window_size.ws_row as usize,
             )
         }
+        Motion::Home => e.cursor_col = 0,
+        Motion::End => e.cursor_col = e.window_size.ws_col as usize - 1,
     }
 }
 
