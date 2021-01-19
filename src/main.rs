@@ -330,11 +330,18 @@ fn editor_refresh_screen(e: &mut EditorState) {
     e.flush();
 }
 
+fn editor_open(e: &mut EditorState) {
+    e.editor_row.push_str("Hello, world!");
+    e.num_rows += 1;
+}
+
 fn main() -> Result<()> {
     let mut editor = EditorState::new()?;
 
     editor.enable_raw_mode()?;
     editor.get_window_size()?;
+
+    editor_open(&mut editor);
 
     while editor.keep_alive {
         editor_refresh_screen(&mut editor);
