@@ -50,8 +50,7 @@ struct EditorState {
     cursor_col: usize,
     cursor_row: usize,
     keep_alive: bool,
-    editor_row: String,
-    num_rows: usize,
+    editor_rows: Vec<String>,
 }
 
 impl EditorState {
@@ -70,8 +69,7 @@ impl EditorState {
             cursor_col: 0,
             cursor_row: 0,
             keep_alive: true,
-            editor_row: String::new(),
-            num_rows: 0,
+            editor_rows: Vec::new(),
         })
     }
 
@@ -321,7 +319,7 @@ fn editor_draw_home_screen(e: &mut EditorState) {
 }
 
 fn editor_draw_content(e: &mut EditorState) {
-    e.append(e.editor_row.clone().as_str());
+    e.append(e.editor_rows.clone().as_str());
     e.append("\x1b[K\r\n");
     e.append(
         std::iter::repeat("~".to_string())
@@ -358,7 +356,7 @@ fn editor_refresh_screen(e: &mut EditorState) {
 fn editor_open(e: &mut EditorState, file: PathBuf) -> Result<()> {
     let mut content = BufReader::new(File::open(file)?).lines();
     if let Some(line) = content.next() {
-        e.editor_row.push_str(line?.as_str());
+        e.editor_rows.push_str(line?.as_str());
         e.num_rows += 1;
     }
     Ok(())
