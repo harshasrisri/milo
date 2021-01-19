@@ -46,6 +46,7 @@ struct EditorState {
     term_buffer: String,
     cursor_col: usize,
     cursor_row: usize,
+    keep_alive: bool,
 }
 
 impl EditorState {
@@ -63,6 +64,7 @@ impl EditorState {
             term_buffer: String::new(),
             cursor_col: 0,
             cursor_row: 0,
+            keep_alive: true,
         })
     }
 
@@ -159,6 +161,7 @@ enum Motion {
     End,
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 enum Edition {
     Delete,
@@ -260,16 +263,17 @@ fn editor_move_cursor(e: &mut EditorState, motion: Motion) {
     }
 }
 
-fn editor_process_keypress(e: &mut EditorState) -> Result<bool> {
+fn editor_process_keypress(e: &mut EditorState) -> Result<()> {
     let key = editor_read_key(e)?;
-    match key {
-        Key::Control('Q') => Ok(false),
+    e.keep_alive = match key {
+        Key::Control('Q') => false,
         Key::Move(motion) => {
             editor_move_cursor(e, motion);
-            Ok(true)
+            true
         }
-        _key => Ok(true),
-    }
+        _key => true,
+    };
+    Ok(())
 }
 
 fn editor_draw_rows(e: &mut EditorState) {
@@ -323,15 +327,14 @@ fn editor_refresh_screen(e: &mut EditorState) {
 }
 
 fn main() -> Result<()> {
-    let mut run = true;
     let mut editor = EditorState::new()?;
 
     editor.enable_raw_mode()?;
     editor.get_window_size()?;
 
-    while run {
+    while editor.keep_alive {
         editor_refresh_screen(&mut editor);
-        run = editor_process_keypress(&mut editor)?;
+        editor_process_keypress(&mut editor)?;
     }
 
     Ok(())
