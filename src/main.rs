@@ -319,23 +319,28 @@ fn editor_draw_home_screen(e: &mut EditorState) {
 }
 
 fn editor_draw_content(e: &mut EditorState) {
-    e.append(e.editor_rows.clone().as_str());
-    e.append("\x1b[K\r\n");
     e.append(
-        std::iter::repeat("~".to_string())
-            .take((e.window_size.ws_row as usize).saturating_sub(e.num_rows))
-            .map(|mut buf| {
-                buf.push_str("\x1b[K");
-                buf
-            })
-            .collect::<Vec<_>>()
-            .join("\r\n")
-            .as_str(),
+        e
+        .editor_rows
+        .to_owned()
+        .into_iter()
+        .chain(
+            std::iter::repeat("~".to_string())
+                .take((e.window_size.ws_row as usize).saturating_sub(e.editor_rows.len()))
+            )
+        .map(|mut buf| {
+            buf.push_str("\x1b[K");
+            buf
+        })
+        .take(e.window_size.ws_row as usize)
+        .collect::<Vec<_>>()
+        .join("\r\n")
+        .as_str(),
     );
 }
 
 fn editor_draw_rows(e: &mut EditorState) {
-    if e.num_rows > 0 {
+    if e.editor_rows.len() > 0 {
         editor_draw_content(e)
     } else {
         editor_draw_home_screen(e)
