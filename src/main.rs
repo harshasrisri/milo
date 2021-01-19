@@ -3,8 +3,11 @@ use libc::{
     BRKINT, CS8, ECHO, ICANON, ICRNL, IEXTEN, INPCK, ISIG, ISTRIP, IXON, OPOST, STDIN_FILENO,
     STDOUT_FILENO, TIOCGWINSZ, VMIN, VTIME,
 };
+use std::fs::File;
 use std::io::{self, Error, ErrorKind, Read, Result};
+use std::io::{BufRead, BufReader};
 use std::mem;
+use std::path::PathBuf;
 
 extern "C" {
     pub fn tcgetattr(fd: c_int, termios: *mut Termios) -> c_int;
@@ -140,7 +143,6 @@ impl EditorState {
 
 impl Drop for EditorState {
     fn drop(&mut self) {
-        // print!("Restoring terminal\r\n");
         write_terminal("\x1b[2J");
         write_terminal("\x1b[H");
         self.orig_termios
@@ -323,12 +325,15 @@ fn editor_draw_content(e: &mut EditorState) {
     e.append("\x1b[K\r\n");
     e.append(
         std::iter::repeat("~".to_string())
-        .take((e.window_size.ws_row as usize).saturating_sub(e.num_rows))
-        .map(|mut buf| { buf.push_str("\x1b[K"); buf })
-        .collect::<Vec<_>>()
-        .join("\r\n")
-        .as_str()
-        );
+            .take((e.window_size.ws_row as usize).saturating_sub(e.num_rows))
+            .map(|mut buf| {
+                buf.push_str("\x1b[K");
+                buf
+            })
+            .collect::<Vec<_>>()
+            .join("\r\n")
+            .as_str(),
+    );
 }
 
 fn editor_draw_rows(e: &mut EditorState) {
@@ -341,7 +346,6 @@ fn editor_draw_rows(e: &mut EditorState) {
 
 fn editor_refresh_screen(e: &mut EditorState) {
     e.append("\x1b[?25l");
-    // e.append("\x1b[2J");
     e.append("\x1b[H");
 
     editor_draw_rows(e);
@@ -351,9 +355,13 @@ fn editor_refresh_screen(e: &mut EditorState) {
     e.flush();
 }
 
-fn editor_open(e: &mut EditorState) {
-    e.editor_row.push_str("Hello, world!");
-    e.num_rows += 1;
+fn editor_open(e: &mut EditorState, file: PathBuf) -> Result<()> {
+    let mut content = BufReader::new(File::open(file)?).lines();
+    if let Some(line) = content.next() {
+        e.editor_row.push_str(line?.as_str());
+        e.num_rows += 1;
+    }
+    Ok(())
 }
 
 fn main() -> Result<()> {
@@ -362,7 +370,9 @@ fn main() -> Result<()> {
     editor.enable_raw_mode()?;
     editor.get_window_size()?;
 
-    editor_open(&mut editor);
+    if let Some(file) = std::env::args().nth(1) {
+        editor_open(&mut editor, file.into())?;
+    }
 
     while editor.keep_alive {
         editor_refresh_screen(&mut editor);
