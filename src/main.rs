@@ -326,13 +326,15 @@ fn editor_draw_content(e: &mut EditorState) {
         .editor_rows
         .to_owned()
         .into_iter()
+        .skip(e.row_offset)
         .chain(
             std::iter::repeat("~".to_string())
                 .take((e.window_size.ws_row as usize).saturating_sub(e.editor_rows.len()))
             )
-        .map(|mut buf| {
-            buf.push_str("\x1b[K");
-            buf
+        .map(|mut line| { 
+            line.truncate(e.window_size.ws_col as usize);
+            line.push_str("\x1b[K");
+            line
         })
         .take(e.window_size.ws_row as usize)
         .collect::<Vec<_>>()
