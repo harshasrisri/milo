@@ -47,6 +47,8 @@ struct EditorState {
     cursor_col: usize,
     cursor_row: usize,
     keep_alive: bool,
+    editor_row: String,
+    num_rows: usize,
 }
 
 impl EditorState {
@@ -65,6 +67,8 @@ impl EditorState {
             cursor_col: 0,
             cursor_row: 0,
             keep_alive: true,
+            editor_row: String::new(),
+            num_rows: 0,
         })
     }
 
