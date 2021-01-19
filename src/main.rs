@@ -100,8 +100,8 @@ impl EditorState {
         let mut cursor_buf = Vec::new();
         while let Ok(key) = editor_read_key(self) {
             match key {
-                Key::AlphaNum(b'R') => break,
-                Key::AlphaNum(c) => cursor_buf.push(c),
+                Key::Printable(b'R') => break,
+                Key::Printable(c) => cursor_buf.push(c),
                 _ => panic!("Unexpected input read"),
             }
         }
@@ -160,10 +160,17 @@ enum Motion {
 }
 
 #[derive(Debug)]
+enum Edition {
+    Delete,
+    Backspace,
+}
+
+#[derive(Debug)]
 enum Key {
-    AlphaNum(u8),
+    Printable(u8),
     Move(Motion),
     Control(char),
+    Edit(Edition),
 }
 
 fn editor_read_key(e: &mut EditorState) -> Result<Key> {
@@ -190,7 +197,7 @@ fn editor_read_key(e: &mut EditorState) -> Result<Key> {
             .collect::<Result<Vec<Option<u8>>>>()?;
 
         let (key, pending) = match seq.as_slice() {
-            [None, None, None] => (Key::AlphaNum(key), None),
+            [None, None, None] => (Key::Printable(key), None),
 
             [Some(b'['), Some(b'A'), pending] => (Key::Move(Motion::Up), *pending),
             [Some(b'['), Some(b'B'), pending] => (Key::Move(Motion::Down), *pending),
@@ -210,6 +217,8 @@ fn editor_read_key(e: &mut EditorState) -> Result<Key> {
             [Some(b'['), Some(b'O'), Some(b'F')] => (Key::Move(Motion::End), None),
             [Some(b'['), Some(b'F'), pending] => (Key::Move(Motion::End), *pending),
 
+            [Some(b'['), Some(b'3'), Some(b'~')] => (Key::Edit(Edition::Delete), None),
+
             _ => {
                 e.key_buffer.clear();
                 e.key_buffer.extend(seq.iter().rev().filter_map(|&k| k));
@@ -225,7 +234,7 @@ fn editor_read_key(e: &mut EditorState) -> Result<Key> {
     } else if key < 32 {
         Key::Control((key + 64) as char)
     } else {
-        Key::AlphaNum(key)
+        Key::Printable(key)
     })
 }
 
