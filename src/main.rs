@@ -38,16 +38,17 @@ impl TermiosAttrExt for Termios {
     }
 }
 
-struct EditorConfig {
+struct EditorState {
     orig_termios: Termios,
     curr_termios: Termios,
     window_size: WinSize,
+    key_buffer: Vec<u8>,
     term_buffer: String,
     cursor_col: usize,
     cursor_row: usize,
 }
 
-impl EditorConfig {
+impl EditorState {
     pub fn new() -> Result<Self> {
         let mut orig_flags = unsafe { mem::zeroed::<Termios>() };
         let ws = unsafe { mem::zeroed::<WinSize>() };
@@ -58,6 +59,7 @@ impl EditorConfig {
             orig_termios: orig_flags,
             curr_termios: orig_flags,
             window_size: ws,
+            key_buffer: Vec::new(),
             term_buffer: String::new(),
             cursor_col: 0,
             cursor_row: 0,
@@ -96,7 +98,7 @@ impl EditorConfig {
         print!("\r\n");
 
         let mut cursor_buf = Vec::new();
-        while let Ok(key) = editor_read_key() {
+        while let Ok(key) = editor_read_key(self) {
             match key {
                 Key::AlphaNum(b'R') => break,
                 Key::AlphaNum(c) => cursor_buf.push(c),
@@ -130,7 +132,7 @@ impl EditorConfig {
     }
 }
 
-impl Drop for EditorConfig {
+impl Drop for EditorState {
     fn drop(&mut self) {
         // print!("Restoring terminal\r\n");
         write_terminal("\x1b[2J");
@@ -162,60 +164,49 @@ enum Key {
     Control(char),
 }
 
-fn editor_read_key() -> Result<Key> {
+fn editor_read_key(e: &mut EditorState) -> Result<Key> {
     let read_key = || io::stdin().bytes().next();
-    let key = std::iter::repeat_with(read_key)
-        .skip_while(|c| c.is_none())
-        .flatten()
-        .next()
-        .unwrap()?;
+    // populate key_buffer from input and check length to flush old content
+    let key = if let Some(pending_key) = e.key_buffer.pop() {
+        pending_key
+    } else {
+        std::iter::repeat_with(read_key)
+            .skip_while(|c| c.is_none())
+            .flatten()
+            .next()
+            .unwrap()?
+    };
 
     Ok(if key == b'\x1b' {
-        let seq0 = if let Some(res) = read_key() {
-            res?
-        } else {
-            return Ok(Key::AlphaNum(key));
+        let seq = e.key_buffer
+            .iter()
+            .rev()
+            .map(|byte| Some(Ok(*byte)))
+            .chain(std::iter::repeat_with(read_key))
+            .take(3)
+            .map(|k| k.transpose())
+            .collect::<Result<Vec<Option<u8>>>>()?;
+
+        let (key, pending) = match seq.as_slice() {
+            [None, None, None] => (Key::AlphaNum(key), None),
+            [Some(b'['), Some(b'A'), pending] => (Key::Move(Motion::Up), *pending),
+            [Some(b'['), Some(b'B'), pending] => (Key::Move(Motion::Down), *pending),
+            [Some(b'['), Some(b'C'), pending] => (Key::Move(Motion::Right), *pending),
+            [Some(b'['), Some(b'D'), pending] => (Key::Move(Motion::Left), *pending),
+            [Some(b'['), Some(b'5'), Some(b'~')] => (Key::Move(Motion::PgUp), None),
+            [Some(b'['), Some(b'6'), Some(b'~')] => (Key::Move(Motion::PgDn), None),
+            _ => {
+                e.key_buffer.clear();
+                e.key_buffer.extend(seq.iter().rev().filter_map(|&k| k));
+                (editor_read_key(e)?, None)
+            }
         };
 
-        if seq0 == b'[' {
-            let seq1 = if let Some(res) = read_key() {
-                res?
-            } else {
-                return Ok(Key::AlphaNum(key));
-            };
-
-            match seq1 {
-                b'A' => Key::Move(Motion::Up),
-                b'B' => Key::Move(Motion::Down),
-                b'C' => Key::Move(Motion::Right),
-                b'D' => Key::Move(Motion::Left),
-                b'0'..=b'9' => {
-                    let seq2 = if let Some(res) = read_key() {
-                        res?
-                    } else {
-                        return Ok(Key::AlphaNum(key));
-                    };
-                    if seq2 == b'~' {
-                        match seq1 {
-                            b'5' => Key::Move(Motion::PgUp),
-                            b'6' => Key::Move(Motion::PgDn),
-                            _ => panic!(
-                                "Unknown Escape Sequence Encountered - \\x1b[{}{}",
-                                seq1, seq2
-                            ),
-                        }
-                    } else {
-                        panic!(
-                            "Unknown Escape Sequence Encountered - \\x1b[{}{}",
-                            seq1, seq2
-                        );
-                    }
-                }
-                _ => panic!("Unknown Escape Sequence Encountered - \\x1b[{}", seq1),
-            }
-        } else {
-            Key::AlphaNum(key)
+        if let Some(key) = pending {
+            e.key_buffer.push(key);
         }
+
+        key
     } else if key < 32 {
         Key::Control((key + 64) as char)
     } else {
@@ -223,7 +214,7 @@ fn editor_read_key() -> Result<Key> {
     })
 }
 
-fn editor_move_cursor(e: &mut EditorConfig, motion: Motion) {
+fn editor_move_cursor(e: &mut EditorState, motion: Motion) {
     match motion {
         Motion::Up => e.cursor_row = e.cursor_row.saturating_sub(1),
         Motion::Left => e.cursor_col = e.cursor_col.saturating_sub(1),
@@ -243,8 +234,8 @@ fn editor_move_cursor(e: &mut EditorConfig, motion: Motion) {
     }
 }
 
-fn editor_process_keypress(e: &mut EditorConfig) -> Result<bool> {
-    let key = editor_read_key()?;
+fn editor_process_keypress(e: &mut EditorState) -> Result<bool> {
+    let key = editor_read_key(e)?;
     match key {
         Key::Control('Q') => Ok(false),
         Key::Move(motion) => {
@@ -255,7 +246,7 @@ fn editor_process_keypress(e: &mut EditorConfig) -> Result<bool> {
     }
 }
 
-fn editor_draw_rows(e: &mut EditorConfig) {
+fn editor_draw_rows(e: &mut EditorState) {
     let mut banner = format!(
         "{} -- version {}",
         env!("CARGO_PKG_NAME"),
@@ -293,7 +284,7 @@ fn editor_draw_rows(e: &mut EditorConfig) {
     );
 }
 
-fn editor_refresh_screen(e: &mut EditorConfig) {
+fn editor_refresh_screen(e: &mut EditorState) {
     e.append("\x1b[?25l");
     // e.append("\x1b[2J");
     e.append("\x1b[H");
@@ -307,7 +298,7 @@ fn editor_refresh_screen(e: &mut EditorConfig) {
 
 fn main() -> Result<()> {
     let mut run = true;
-    let mut editor = EditorConfig::new()?;
+    let mut editor = EditorState::new()?;
 
     editor.enable_raw_mode()?;
     editor.get_window_size()?;
