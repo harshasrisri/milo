@@ -354,10 +354,9 @@ fn editor_refresh_screen(e: &mut EditorState) {
 }
 
 fn editor_open(e: &mut EditorState, file: PathBuf) -> Result<()> {
-    let mut content = BufReader::new(File::open(file)?).lines();
-    if let Some(line) = content.next() {
-        e.editor_rows.push_str(line?.as_str());
-        e.num_rows += 1;
+    let line_iter = BufReader::new(File::open(file)?).lines();
+    for line in line_iter {
+        e.editor_rows.push(line?);
     }
     Ok(())
 }
