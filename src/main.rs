@@ -280,14 +280,14 @@ fn editor_process_keypress(e: &mut EditorState) -> Result<()> {
     Ok(())
 }
 
-fn editor_draw_rows(e: &mut EditorState) {
+fn editor_draw_home_screen(e: &mut EditorState) {
     let mut banner = format!(
         "{} -- version {}",
         env!("CARGO_PKG_NAME"),
         env!("CARGO_PKG_VERSION")
     );
     banner.truncate(e.window_size.ws_col as usize);
-    let padding = (e.window_size.ws_col as usize - banner.len()) / 2;
+    let padding = (e.window_size.ws_col as usize).saturating_sub(banner.len()) / 2;
     let banner = if padding == 0 {
         banner
     } else {
@@ -316,6 +316,27 @@ fn editor_draw_rows(e: &mut EditorState) {
             .join("\r\n")
             .as_str(),
     );
+}
+
+fn editor_draw_content(e: &mut EditorState) {
+    e.append(e.editor_row.clone().as_str());
+    e.append("\x1b[K\r\n");
+    e.append(
+        std::iter::repeat("~".to_string())
+        .take((e.window_size.ws_row as usize).saturating_sub(e.num_rows))
+        .map(|mut buf| { buf.push_str("\x1b[K"); buf })
+        .collect::<Vec<_>>()
+        .join("\r\n")
+        .as_str()
+        );
+}
+
+fn editor_draw_rows(e: &mut EditorState) {
+    if e.num_rows > 0 {
+        editor_draw_content(e)
+    } else {
+        editor_draw_home_screen(e)
+    }
 }
 
 fn editor_refresh_screen(e: &mut EditorState) {
