@@ -251,19 +251,10 @@ fn editor_move_cursor(e: &mut EditorState, motion: Motion) {
     match motion {
         Motion::Up => e.cursor_row = e.cursor_row.saturating_sub(1),
         Motion::Left => e.cursor_col = e.cursor_col.saturating_sub(1),
-        Motion::Down => {
-            e.cursor_row = std::cmp::min(e.window_size.ws_row as usize - 1, e.cursor_row + 1)
-        }
-        Motion::Right => {
-            e.cursor_col = std::cmp::min(e.window_size.ws_col as usize - 1, e.cursor_col + 1)
-        }
+        Motion::Down => e.cursor_row = e.cursor_row + 1,
+        Motion::Right => e.cursor_col = e.cursor_col + 1,
         Motion::PgUp => e.cursor_row = e.cursor_row.saturating_sub(e.window_size.ws_row as usize),
-        Motion::PgDn => {
-            e.cursor_row = std::cmp::min(
-                e.window_size.ws_row as usize - 1,
-                e.cursor_col + e.window_size.ws_row as usize,
-            )
-        }
+        Motion::PgDn => e.cursor_row = e.cursor_col + e.window_size.ws_row as usize,
         Motion::Home => e.cursor_col = 0,
         Motion::End => e.cursor_col = e.window_size.ws_col as usize - 1,
     }
@@ -351,7 +342,18 @@ fn editor_draw_rows(e: &mut EditorState) {
     }
 }
 
+fn editor_scroll(e: &mut EditorState) {
+    if e.cursor_row < e.row_offset {
+        e.row_offset = e.cursor_row;
+    } 
+    else if e.cursor_row >= e.row_offset + e.window_size.ws_row as usize {
+        e.row_offset = 1 + e.cursor_row - e.window_size.ws_row as usize;
+    }
+}
+
 fn editor_refresh_screen(e: &mut EditorState) {
+    editor_scroll(e);
+
     e.append("\x1b[?25l");
     e.append("\x1b[H");
 
