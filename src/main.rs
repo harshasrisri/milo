@@ -3,6 +3,7 @@ use libc::{
     BRKINT, CS8, ECHO, ICANON, ICRNL, IEXTEN, INPCK, ISIG, ISTRIP, IXON, OPOST, STDIN_FILENO,
     STDOUT_FILENO, TIOCGWINSZ, VMIN, VTIME,
 };
+use std::cmp::min;
 use std::fs::File;
 use std::io::{self, Error, ErrorKind, Read, Result};
 use std::io::{BufRead, BufReader};
@@ -251,10 +252,15 @@ fn editor_move_cursor(e: &mut EditorState, motion: Motion) {
     match motion {
         Motion::Up => e.cursor_row = e.cursor_row.saturating_sub(1),
         Motion::Left => e.cursor_col = e.cursor_col.saturating_sub(1),
-        Motion::Down => e.cursor_row = e.cursor_row + 1,
-        Motion::Right => e.cursor_col = e.cursor_col + 1,
+        Motion::Down => e.cursor_row = min(e.editor_rows.len() - 1, e.cursor_row + 1),
+        Motion::Right => e.cursor_col = min(e.window_size.ws_col as usize - 1, e.cursor_col + 1),
         Motion::PgUp => e.cursor_row = e.cursor_row.saturating_sub(e.window_size.ws_row as usize),
-        Motion::PgDn => e.cursor_row = e.cursor_col + e.window_size.ws_row as usize,
+        Motion::PgDn => {
+            e.cursor_row = min(
+                e.editor_rows.len() - 1,
+                e.cursor_row + e.window_size.ws_row as usize,
+            )
+        }
         Motion::Home => e.cursor_col = 0,
         Motion::End => e.cursor_col = e.window_size.ws_col as usize - 1,
     }
@@ -313,40 +319,38 @@ fn editor_draw_home_screen(e: &mut EditorState) {
 
 fn editor_draw_content(e: &mut EditorState) {
     e.append(
-        e
-        .editor_rows
-        .to_owned()
-        .into_iter()
-        .skip(e.row_offset)
-        .chain(
-            std::iter::repeat("~".to_string())
-                .take((e.window_size.ws_row as usize).saturating_sub(e.editor_rows.len()))
+        e.editor_rows
+            .to_owned()
+            .into_iter()
+            .skip(e.row_offset)
+            .chain(
+                std::iter::repeat("~".to_string())
+                    .take((e.window_size.ws_row as usize).saturating_sub(e.editor_rows.len())),
             )
-        .map(|mut line| { 
-            line.truncate(e.window_size.ws_col as usize);
-            line.push_str("\x1b[K");
-            line
-        })
-        .take(e.window_size.ws_row as usize)
-        .collect::<Vec<_>>()
-        .join("\r\n")
-        .as_str(),
+            .map(|mut line| {
+                line.truncate(e.window_size.ws_col as usize);
+                line.push_str("\x1b[K");
+                line
+            })
+            .take(e.window_size.ws_row as usize)
+            .collect::<Vec<_>>()
+            .join("\r\n")
+            .as_str(),
     );
 }
 
 fn editor_draw_rows(e: &mut EditorState) {
-    if e.editor_rows.len() > 0 {
-        editor_draw_content(e)
-    } else {
+    if e.editor_rows.is_empty() {
         editor_draw_home_screen(e)
+    } else {
+        editor_draw_content(e)
     }
 }
 
 fn editor_scroll(e: &mut EditorState) {
     if e.cursor_row < e.row_offset {
         e.row_offset = e.cursor_row;
-    } 
-    else if e.cursor_row >= e.row_offset + e.window_size.ws_row as usize {
+    } else if e.cursor_row >= e.row_offset + e.window_size.ws_row as usize {
         e.row_offset = 1 + e.cursor_row - e.window_size.ws_row as usize;
     }
 }
