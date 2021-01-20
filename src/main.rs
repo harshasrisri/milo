@@ -363,7 +363,14 @@ fn editor_refresh_screen(e: &mut EditorState) {
 
     editor_draw_rows(e);
 
-    e.append(format!("\x1b[{};{}H", e.cursor_row + 1, e.cursor_col + 1).as_str());
+    e.append(
+        format!(
+            "\x1b[{};{}H",
+            e.cursor_row - e.row_offset + 1,
+            e.cursor_col + 1
+        )
+        .as_str(),
+    );
     e.append("\x1b[?25h");
     e.flush();
 }
