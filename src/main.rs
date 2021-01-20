@@ -53,6 +53,7 @@ struct EditorState {
     keep_alive: bool,
     editor_rows: Vec<String>,
     row_offset: usize,
+    col_offset: usize,
 }
 
 impl EditorState {
@@ -73,6 +74,7 @@ impl EditorState {
             keep_alive: true,
             editor_rows: Vec::new(),
             row_offset: 0,
+            col_offset: 0,
         })
     }
 
