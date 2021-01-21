@@ -329,7 +329,8 @@ fn editor_draw_content(e: &mut EditorState) {
                 std::iter::repeat("~".to_string())
                     .take((e.window_size.ws_row as usize).saturating_sub(e.editor_rows.len())),
             )
-            .map(|mut line| {
+            .map(|line| {
+                let mut line = line.chars().skip(e.col_offset).collect::<String>();
                 line.truncate(e.window_size.ws_col as usize);
                 line.push_str("\x1b[K");
                 line
