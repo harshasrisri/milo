@@ -376,7 +376,7 @@ fn editor_refresh_screen(e: &mut EditorState) {
         format!(
             "\x1b[{};{}H",
             e.cursor_row - e.row_offset + 1,
-            e.cursor_col + 1
+            e.cursor_col - e.col_offset + 1
         )
         .as_str(),
     );
