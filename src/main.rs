@@ -266,6 +266,8 @@ fn editor_move_cursor(e: &mut EditorState, motion: Motion) {
         Motion::Home => e.cursor_col = 0,
         Motion::End => e.cursor_col = e.window_size.ws_col as usize - 1,
     }
+
+    e.cursor_col = min(e.editor_rows[e.cursor_row].len(), e.cursor_col);
 }
 
 fn editor_process_keypress(e: &mut EditorState) -> Result<()> {
