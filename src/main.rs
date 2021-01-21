@@ -356,6 +356,12 @@ fn editor_scroll(e: &mut EditorState) {
     } else if e.cursor_row >= e.row_offset + e.window_size.ws_row as usize {
         e.row_offset = 1 + e.cursor_row - e.window_size.ws_row as usize;
     }
+
+    if e.cursor_col < e.col_offset {
+        e.col_offset = e.cursor_col;
+    } else if e.cursor_col >= e.col_offset + e.window_size.ws_col as usize {
+        e.col_offset = 1 + e.cursor_col - e.window_size.ws_col as usize;
+    }
 }
 
 fn editor_refresh_screen(e: &mut EditorState) {
