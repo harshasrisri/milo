@@ -255,7 +255,7 @@ fn editor_move_cursor(e: &mut EditorState, motion: Motion) {
         Motion::Up => e.cursor_row = e.cursor_row.saturating_sub(1),
         Motion::Left => e.cursor_col = e.cursor_col.saturating_sub(1),
         Motion::Down => e.cursor_row = min(e.editor_rows.len() - 1, e.cursor_row + 1),
-        Motion::Right => e.cursor_col = min(e.window_size.ws_col as usize - 1, e.cursor_col + 1),
+        Motion::Right => e.cursor_col += 1,
         Motion::PgUp => e.cursor_row = e.cursor_row.saturating_sub(e.window_size.ws_row as usize),
         Motion::PgDn => {
             e.cursor_row = min(
