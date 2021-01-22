@@ -253,7 +253,14 @@ fn editor_read_key(e: &mut EditorState) -> Result<Key> {
 fn editor_move_cursor(e: &mut EditorState, motion: Motion) {
     match motion {
         Motion::Up => e.cursor_row = e.cursor_row.saturating_sub(1),
-        Motion::Left => e.cursor_col = e.cursor_col.saturating_sub(1),
+        Motion::Left => {
+            if e.cursor_col != 0 {
+                e.cursor_col -= 1;
+            } else if e.cursor_row > 0 {
+                e.cursor_row -= 1;
+                e.cursor_col = e.editor_rows[e.cursor_row].len();
+            }
+        }
         Motion::Down => e.cursor_row = min(e.editor_rows.len() - 1, e.cursor_row + 1),
         Motion::Right => e.cursor_col = min(e.editor_rows[e.cursor_row].len(), e.cursor_col + 1),
         Motion::PgUp => e.cursor_row = e.cursor_row.saturating_sub(e.window_size.ws_row as usize),
