@@ -51,7 +51,8 @@ struct EditorState {
     cursor_col: usize,
     cursor_row: usize,
     keep_alive: bool,
-    editor_rows: Vec<String>,
+    text_lines: Vec<String>,
+    render_lines: Vec<String>,
     row_offset: usize,
     col_offset: usize,
 }
@@ -72,7 +73,8 @@ impl EditorState {
             cursor_col: 0,
             cursor_row: 0,
             keep_alive: true,
-            editor_rows: Vec::new(),
+            text_lines: Vec::new(),
+            render_lines: Vec::new(),
             row_offset: 0,
             col_offset: 0,
         })
@@ -258,14 +260,14 @@ fn editor_move_cursor(e: &mut EditorState, motion: Motion) {
                 e.cursor_col -= 1;
             } else if e.cursor_row > 0 {
                 e.cursor_row -= 1;
-                e.cursor_col = e.editor_rows[e.cursor_row].len();
+                e.cursor_col = e.text_lines[e.cursor_row].len();
             }
         }
-        Motion::Down => e.cursor_row = min(e.editor_rows.len() - 1, e.cursor_row + 1),
+        Motion::Down => e.cursor_row = min(e.text_lines.len() - 1, e.cursor_row + 1),
         Motion::Right => {
-            if e.cursor_col < e.editor_rows[e.cursor_row].len() {
+            if e.cursor_col < e.text_lines[e.cursor_row].len() {
                 e.cursor_col += 1;
-            } else if e.cursor_row < e.editor_rows.len() - 1 {
+            } else if e.cursor_row < e.text_lines.len() - 1 {
                 e.cursor_row += 1;
                 e.cursor_col = 0;
             }
@@ -273,7 +275,7 @@ fn editor_move_cursor(e: &mut EditorState, motion: Motion) {
         Motion::PgUp => e.cursor_row = e.cursor_row.saturating_sub(e.window_size.ws_row as usize),
         Motion::PgDn => {
             e.cursor_row = min(
-                e.editor_rows.len() - 1,
+                e.text_lines.len() - 1,
                 e.cursor_row + e.window_size.ws_row as usize,
             )
         }
@@ -281,7 +283,7 @@ fn editor_move_cursor(e: &mut EditorState, motion: Motion) {
         Motion::End => e.cursor_col = e.window_size.ws_col as usize - 1,
     }
 
-    e.cursor_col = min(e.editor_rows[e.cursor_row].len(), e.cursor_col);
+    e.cursor_col = min(e.text_lines[e.cursor_row].len(), e.cursor_col);
 }
 
 fn editor_process_keypress(e: &mut EditorState) -> Result<()> {
@@ -337,13 +339,13 @@ fn editor_draw_home_screen(e: &mut EditorState) {
 
 fn editor_draw_content(e: &mut EditorState) {
     e.append(
-        e.editor_rows
+        e.text_lines
             .to_owned()
             .into_iter()
             .skip(e.row_offset)
             .chain(
                 std::iter::repeat("~".to_string())
-                    .take((e.window_size.ws_row as usize).saturating_sub(e.editor_rows.len())),
+                    .take((e.window_size.ws_row as usize).saturating_sub(e.text_lines.len())),
             )
             .map(|line| {
                 let mut line = line.chars().skip(e.col_offset).collect::<String>();
@@ -359,7 +361,7 @@ fn editor_draw_content(e: &mut EditorState) {
 }
 
 fn editor_draw_rows(e: &mut EditorState) {
-    if e.editor_rows.is_empty() {
+    if e.text_lines.is_empty() {
         editor_draw_home_screen(e)
     } else {
         editor_draw_content(e)
@@ -403,7 +405,7 @@ fn editor_refresh_screen(e: &mut EditorState) {
 fn editor_open(e: &mut EditorState, file: PathBuf) -> Result<()> {
     let line_iter = BufReader::new(File::open(file)?).lines();
     for line in line_iter {
-        e.editor_rows.push(line?);
+        e.text_lines.push(line?);
     }
     Ok(())
 }
