@@ -339,7 +339,7 @@ fn editor_draw_home_screen(e: &mut EditorState) {
 
 fn editor_draw_content(e: &mut EditorState) {
     e.append(
-        e.text_lines
+        e.render_lines
             .to_owned()
             .into_iter()
             .skip(e.row_offset)
