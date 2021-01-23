@@ -17,6 +17,8 @@ extern "C" {
     pub fn ioctl(fd: c_int, request: c_ulong, ...) -> c_int;
 }
 
+const TAB_STOP: usize = 8;
+
 trait TermiosAttrExt {
     fn get_attr(&mut self) -> Result<()>;
     fn set_attr(&self) -> Result<()>;
@@ -409,7 +411,7 @@ fn editor_update_row(e: &mut EditorState, line: String) {
             .enumerate()
             .map(|(n, c)| {
                 if c == '\t' {
-                    std::iter::repeat(' ').take(8 - (n % 8)).collect()
+                    std::iter::repeat(' ').take(TAB_STOP - (n % TAB_STOP)).collect()
                 } else {
                     c.to_string()
                 }
