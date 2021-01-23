@@ -402,10 +402,19 @@ fn editor_refresh_screen(e: &mut EditorState) {
     e.flush();
 }
 
+fn editor_update_row(e: &mut EditorState, line: String) {
+    e.render_lines.push(line);
+}
+
+fn editor_append_row(e: &mut EditorState, line: String) {
+    e.text_lines.push(line.clone());
+    editor_update_row(e, line);
+}
+
 fn editor_open(e: &mut EditorState, file: PathBuf) -> Result<()> {
     let line_iter = BufReader::new(File::open(file)?).lines();
     for line in line_iter {
-        e.text_lines.push(line?);
+        editor_append_row(e, line?);
     }
     Ok(())
 }
