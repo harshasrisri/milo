@@ -403,7 +403,19 @@ fn editor_refresh_screen(e: &mut EditorState) {
 }
 
 fn editor_update_row(e: &mut EditorState, line: String) {
-    e.render_lines.push(line);
+    e.render_lines.push(
+        line
+            .chars()
+            .enumerate()
+            .map(|(n, c)| {
+                if c == '\t' {
+                    std::iter::repeat(' ').take(8 - (n % 8)).collect()
+                } else {
+                    c.to_string()
+                }
+            })
+            .collect()
+        );
 }
 
 fn editor_append_row(e: &mut EditorState, line: String) {
