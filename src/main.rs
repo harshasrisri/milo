@@ -373,16 +373,18 @@ fn editor_draw_rows(e: &mut EditorState) {
 }
 
 fn editor_scroll(e: &mut EditorState) {
+    e.render_col = e.cursor_col;
+
     if e.cursor_row < e.row_offset {
         e.row_offset = e.cursor_row;
     } else if e.cursor_row >= e.row_offset + e.window_size.ws_row as usize {
         e.row_offset = 1 + e.cursor_row - e.window_size.ws_row as usize;
     }
 
-    if e.cursor_col < e.col_offset {
-        e.col_offset = e.cursor_col;
-    } else if e.cursor_col >= e.col_offset + e.window_size.ws_col as usize {
-        e.col_offset = 1 + e.cursor_col - e.window_size.ws_col as usize;
+    if e.render_col < e.col_offset {
+        e.col_offset = e.render_col;
+    } else if e.render_col >= e.col_offset + e.window_size.ws_col as usize {
+        e.col_offset = 1 + e.render_col - e.window_size.ws_col as usize;
     }
 }
 
