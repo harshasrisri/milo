@@ -408,20 +408,37 @@ fn editor_refresh_screen(e: &mut EditorState) {
     e.flush();
 }
 
+fn editor_row_cursor_to_render(e: &EditorState) -> usize {
+    eprintln!("e.cursor_col - {}, e.render_col - {}", e.cursor_col, e.render_col);
+    let rx = e.text_lines[e.cursor_row]
+        .chars()
+        .take(e.cursor_col)
+        .fold(0, |rx, c| {
+            if c == '\t' {
+                rx + (TAB_STOP - 1) - (rx % TAB_STOP)
+            } else {
+                rx + 1
+            }
+        });
+    eprintln!("e.cursor_col - {}, e.render_col - {}", e.cursor_col, rx);
+    rx
+}
+
 fn editor_update_row(e: &mut EditorState, line: String) {
     e.render_lines.push(
-        line
-            .chars()
+        line.chars()
             .enumerate()
             .map(|(n, c)| {
                 if c == '\t' {
-                    std::iter::repeat(' ').take(TAB_STOP - (n % TAB_STOP)).collect()
+                    std::iter::repeat(' ')
+                        .take(TAB_STOP - (n % TAB_STOP))
+                        .collect()
                 } else {
                     c.to_string()
                 }
             })
-            .collect()
-        );
+            .collect(),
+    );
 }
 
 fn editor_append_row(e: &mut EditorState, line: String) {
