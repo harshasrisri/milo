@@ -18,6 +18,7 @@ extern "C" {
 }
 
 const TAB_STOP: usize = 8;
+const STATUS_HEIGHT: usize = 1;
 
 trait TermiosAttrExt {
     fn get_attr(&mut self) -> Result<()>;
@@ -104,10 +105,10 @@ impl EditorState {
                 if write_terminal(botright) != botright.len() as i32 {
                     return Err(Error::new(ErrorKind::Other, "Can't get window size"));
                 }
-                self.get_cursor_position()
-            } else {
-                Ok(())
+                self.get_cursor_position()?;
             }
+            self.window_size.ws_row -= STATUS_HEIGHT as u16;
+            Ok(())
         }
     }
 
@@ -332,11 +333,10 @@ fn editor_draw_home_screen(e: &mut EditorState) {
                 }
             })
             .map(|mut buf| {
-                buf.push_str("\x1b[K");
+                buf.push_str("\x1b[K\r\n");
                 buf
             })
-            .collect::<Vec<_>>()
-            .join("\r\n")
+            .collect::<String>()
             .as_str(),
     );
 }
@@ -354,12 +354,11 @@ fn editor_draw_content(e: &mut EditorState) {
             .map(|line| {
                 let mut line = line.chars().skip(e.col_offset).collect::<String>();
                 line.truncate(e.window_size.ws_col as usize);
-                line.push_str("\x1b[K");
+                line.push_str("\x1b[K\r\n");
                 line
             })
             .take(e.window_size.ws_row as usize)
-            .collect::<Vec<_>>()
-            .join("\r\n")
+            .collect::<String>()
             .as_str(),
     );
 }
