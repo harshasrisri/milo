@@ -373,7 +373,7 @@ fn editor_draw_rows(e: &mut EditorState) {
 }
 
 fn editor_scroll(e: &mut EditorState) {
-    e.render_col = e.cursor_col;
+    e.render_col = editor_row_cursor_to_render(e);
 
     if e.cursor_row < e.row_offset {
         e.row_offset = e.cursor_row;
@@ -409,7 +409,6 @@ fn editor_refresh_screen(e: &mut EditorState) {
 }
 
 fn editor_row_cursor_to_render(e: &EditorState) -> usize {
-    eprintln!("e.cursor_col - {}, e.render_col - {}", e.cursor_col, e.render_col);
     let rx = e.text_lines[e.cursor_row]
         .chars()
         .take(e.cursor_col)
@@ -420,7 +419,6 @@ fn editor_row_cursor_to_render(e: &EditorState) -> usize {
                 rx + 1
             }
         });
-    eprintln!("e.cursor_col - {}, e.render_col - {}", e.cursor_col, rx);
     rx
 }
 
