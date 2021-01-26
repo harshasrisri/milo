@@ -268,19 +268,21 @@ fn editor_move_cursor(e: &mut EditorState, motion: Motion) {
                 e.cursor_col = e.text_lines[e.cursor_row].len();
             }
         }
-        Motion::Down => e.cursor_row = min(e.text_lines.len() - 1, e.cursor_row + 1),
+        Motion::Down => e.cursor_row = min(e.text_lines.len().saturating_sub(1), e.cursor_row + 1),
         Motion::Right => {
-            if e.cursor_col < e.text_lines[e.cursor_row].len() {
-                e.cursor_col += 1;
-            } else if e.cursor_row < e.text_lines.len() - 1 {
-                e.cursor_row += 1;
-                e.cursor_col = 0;
+            if let Some(row) = e.text_lines.get(e.cursor_row) {
+                if e.cursor_col < row.len() {
+                    e.cursor_col += 1;
+                } else if e.cursor_row < e.text_lines.len() - 1 {
+                    e.cursor_row += 1;
+                    e.cursor_col = 0;
+                }
             }
         }
         Motion::PgUp => e.cursor_row = e.cursor_row.saturating_sub(e.window_size.ws_row as usize),
         Motion::PgDn => {
             e.cursor_row = min(
-                e.text_lines.len() - 1,
+                e.text_lines.len().saturating_sub(1),
                 e.cursor_row + e.window_size.ws_row as usize,
             )
         }
@@ -288,7 +290,9 @@ fn editor_move_cursor(e: &mut EditorState, motion: Motion) {
         Motion::End => e.cursor_col = e.window_size.ws_col as usize - 1,
     }
 
-    e.cursor_col = min(e.text_lines[e.cursor_row].len(), e.cursor_col);
+    if let Some(row) = e.text_lines.get(e.cursor_row) {
+        e.cursor_col = min(row.len(), e.cursor_col);
+    }
 }
 
 fn editor_process_keypress(e: &mut EditorState) -> Result<()> {
@@ -371,6 +375,17 @@ fn editor_draw_rows(e: &mut EditorState) {
     }
 }
 
+fn editor_draw_status_bar(e: &mut EditorState) {
+    e.append("\x1b[7m");
+    e.append(
+        std::iter::repeat(' ')
+            .take(e.window_size.ws_col as usize)
+            .collect::<String>()
+            .as_str(),
+    );
+    e.append("\x1b[m");
+}
+
 fn editor_scroll(e: &mut EditorState) {
     e.render_col = editor_row_cursor_to_render(e);
 
@@ -394,6 +409,7 @@ fn editor_refresh_screen(e: &mut EditorState) {
     e.append("\x1b[H");
 
     editor_draw_rows(e);
+    editor_draw_status_bar(e);
 
     e.append(
         format!(
@@ -408,17 +424,17 @@ fn editor_refresh_screen(e: &mut EditorState) {
 }
 
 fn editor_row_cursor_to_render(e: &EditorState) -> usize {
-    let rx = e.text_lines[e.cursor_row]
-        .chars()
-        .take(e.cursor_col)
-        .fold(0, |rx, c| {
+    if let Some(row) = e.text_lines.get(e.cursor_row) {
+        row.chars().take(e.cursor_col).fold(0, |rx, c| {
             if c == '\t' {
                 rx + (TAB_STOP - 1) - (rx % TAB_STOP)
             } else {
                 rx + 1
             }
-        });
-    rx
+        })
+    } else {
+        0
+    }
 }
 
 fn editor_update_row(e: &mut EditorState, line: String) {
