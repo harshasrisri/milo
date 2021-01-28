@@ -59,6 +59,7 @@ struct EditorState {
     render_lines: Vec<String>,
     row_offset: usize,
     col_offset: usize,
+    filename: Option<PathBuf>,
 }
 
 impl EditorState {
@@ -82,6 +83,7 @@ impl EditorState {
             render_lines: Vec::new(),
             row_offset: 0,
             col_offset: 0,
+            filename: None,
         })
     }
 
@@ -459,10 +461,13 @@ fn editor_append_row(e: &mut EditorState, line: String) {
     editor_update_row(e, line);
 }
 
-fn editor_open(e: &mut EditorState, file: PathBuf) -> Result<()> {
-    let line_iter = BufReader::new(File::open(file)?).lines();
-    for line in line_iter {
-        editor_append_row(e, line?);
+fn editor_open(e: &mut EditorState, file_arg: Option<String>) -> Result<()> {
+    if let Some(file) = file_arg {
+        e.filename = Some(file.clone().into());
+        let line_iter = BufReader::new(File::open(file)?).lines();
+        for line in line_iter {
+            editor_append_row(e, line?);
+        }
     }
     Ok(())
 }
@@ -473,9 +478,7 @@ fn main() -> Result<()> {
     editor.enable_raw_mode()?;
     editor.get_window_size()?;
 
-    if let Some(file) = std::env::args().nth(1) {
-        editor_open(&mut editor, file.into())?;
-    }
+    editor_open(&mut editor, std::env::args().nth(1))?;
 
     while editor.keep_alive {
         editor_refresh_screen(&mut editor);
