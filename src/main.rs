@@ -384,6 +384,7 @@ fn editor_draw_rows(e: &mut EditorState) {
 }
 
 const FILE_NAME_WIDTH: usize = 20;
+const STATUS_LINE_BLANK: char = ' ';
 fn editor_draw_status_bar(e: &mut EditorState) {
     e.append("\x1b[7m");
     let filename = e
@@ -391,20 +392,25 @@ fn editor_draw_status_bar(e: &mut EditorState) {
         .as_ref()
         .map(|file| file.to_str().unwrap_or("<file-name-not-utf8>"))
         .unwrap_or("[No Name]");
-    let mut status = format!(
+    let status_left = format!(
         "{name:<.*} - {lc} lines",
         FILE_NAME_WIDTH,
         name = filename,
         lc = e.text_lines.len()
     );
+    let status_right = format!("{}/{}", e.cursor_row + 1, e.text_lines.len());
+    let num_spaces = (e.window_size.ws_col as usize)
+        .saturating_sub(status_left.len())
+        .saturating_sub(status_right.len());
+    let mut status = format!(
+        "{left}{:spaces$}{right}",
+        STATUS_LINE_BLANK,
+        spaces = num_spaces,
+        left = status_left,
+        right = status_right
+    );
     status.truncate(e.window_size.ws_col as usize);
     e.append(status.as_str());
-    e.append(
-        std::iter::repeat(' ')
-            .take(e.window_size.ws_col as usize - status.len())
-            .collect::<String>()
-            .as_str(),
-    );
     e.append("\x1b[m");
 }
 
