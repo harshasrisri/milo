@@ -9,6 +9,7 @@ use std::io::{self, Error, ErrorKind, Read, Result};
 use std::io::{BufRead, BufReader};
 use std::mem;
 use std::path::PathBuf;
+use std::time::Instant;
 
 extern "C" {
     pub fn tcgetattr(fd: c_int, termios: *mut Termios) -> c_int;
@@ -60,6 +61,8 @@ struct EditorState {
     row_offset: usize,
     col_offset: usize,
     filename: Option<PathBuf>,
+    status_msg: String,
+    status_msg_ts: Instant,
 }
 
 impl EditorState {
@@ -84,6 +87,8 @@ impl EditorState {
             row_offset: 0,
             col_offset: 0,
             filename: None,
+            status_msg: String::new(),
+            status_msg_ts: Instant::now(),
         })
     }
 
