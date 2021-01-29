@@ -147,6 +147,14 @@ impl EditorState {
         self.term_buffer.push_str(content);
     }
 
+    #[allow(dead_code)]
+    fn append_with<I>(&mut self, c_iter: I)
+    where
+        I: IntoIterator<Item = char>,
+    {
+        self.term_buffer.extend(c_iter);
+    }
+
     fn flush(&mut self) {
         write_terminal(self.term_buffer.as_str());
         self.term_buffer.clear();
@@ -333,15 +341,12 @@ fn editor_draw_home_screen(e: &mut EditorState) {
             .enumerate()
             .map(|(n, buf)| {
                 if n == e.window_size.ws_row as usize / 3 {
-                    banner.clone()
+                    banner.chars()
                 } else {
-                    buf.to_string()
+                    buf.chars()
                 }
             })
-            .map(|mut buf| {
-                buf.push_str("\x1b[K\r\n");
-                buf
-            })
+            .flat_map(|buf| buf.chain("\x1b[K\r\n".chars()))
             .collect::<String>()
             .as_str(),
     );
@@ -350,20 +355,21 @@ fn editor_draw_home_screen(e: &mut EditorState) {
 fn editor_draw_content(e: &mut EditorState) {
     e.append(
         e.render_lines
-            .to_owned()
-            .into_iter()
+            .iter()
             .skip(e.row_offset)
+            .map(|line| line.as_str())
             .chain(
-                std::iter::repeat("~".to_string())
+                std::iter::repeat("~")
                     .take((e.window_size.ws_row as usize).saturating_sub(e.text_lines.len())),
             )
             .map(|line| {
-                let mut line = line.chars().skip(e.col_offset).collect::<String>();
-                line.truncate(e.window_size.ws_col as usize);
-                line.push_str("\x1b[K\r\n");
-                line
+                line.chars()
+                    .skip(e.col_offset)
+                    .take(e.window_size.ws_col as usize)
+                    .chain("\x1b[K\r\n".chars())
             })
             .take(e.window_size.ws_row as usize)
+            .flatten()
             .collect::<String>()
             .as_str(),
     );
