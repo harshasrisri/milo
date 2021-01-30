@@ -21,7 +21,7 @@ extern "C" {
 }
 
 const TAB_STOP: usize = 8;
-const STATUS_HEIGHT: usize = 1;
+const STATUS_HEIGHT: usize = 2; // 1 for Status bar. 1 for Status Message
 
 trait TermiosAttrExt {
     fn get_attr(&mut self) -> Result<()>;
@@ -420,6 +420,7 @@ fn editor_draw_status_bar(e: &mut EditorState) {
     status.truncate(e.window_size.ws_col as usize);
     e.append(status.as_str());
     e.append("\x1b[m");
+    e.append("\r\n");
 }
 
 fn editor_scroll(e: &mut EditorState) {
