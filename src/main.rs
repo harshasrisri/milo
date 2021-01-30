@@ -439,6 +439,15 @@ fn editor_scroll(e: &mut EditorState) {
     }
 }
 
+fn editor_draw_message_bar(e: &mut EditorState) {
+    e.append("\x1b[K");
+    if e.status_msg_ts.elapsed().as_secs() < 5 {
+        e.status_msg.truncate(e.window_size.ws_col as usize);
+        let msg = e.status_msg.clone();
+        e.append(msg.as_str());
+    }
+}
+
 fn editor_refresh_screen(e: &mut EditorState) {
     editor_scroll(e);
 
@@ -447,6 +456,7 @@ fn editor_refresh_screen(e: &mut EditorState) {
 
     editor_draw_rows(e);
     editor_draw_status_bar(e);
+    editor_draw_message_bar(e);
 
     e.append(
         format!(
