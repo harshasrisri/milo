@@ -1,9 +1,11 @@
+use core::format_args;
 use libc::{c_int, c_ulong, c_void, termios as Termios, winsize as WinSize};
 use libc::{
     BRKINT, CS8, ECHO, ICANON, ICRNL, IEXTEN, INPCK, ISIG, ISTRIP, IXON, OPOST, STDIN_FILENO,
     STDOUT_FILENO, TIOCGWINSZ, VMIN, VTIME,
 };
 use std::cmp::min;
+use std::fmt::Write;
 use std::fs::File;
 use std::io::{self, Error, ErrorKind, Read, Result};
 use std::io::{BufRead, BufReader};
@@ -46,6 +48,7 @@ impl TermiosAttrExt for Termios {
     }
 }
 
+#[allow(dead_code)]
 struct EditorState {
     orig_termios: Termios,
     curr_termios: Termios,
@@ -456,6 +459,17 @@ fn editor_refresh_screen(e: &mut EditorState) {
     e.flush();
 }
 
+macro_rules! editor_set_status_message {
+    ($e:expr, $($arg:tt)*) => {{
+        if let Err(_) = $e.status_msg.write_fmt($crate::format_args!($($arg)*)) {
+            Err(Error::new(ErrorKind::Other, "Error setting status message"))
+        } else {
+            $e.status_msg_ts = Instant::now();
+            Ok(())
+        }
+    }}
+}
+
 fn editor_row_cursor_to_render(e: &EditorState) -> usize {
     if let Some(row) = e.text_lines.get(e.cursor_row) {
         row.chars().take(e.cursor_col).fold(0, |rx, c| {
@@ -510,6 +524,7 @@ fn main() -> Result<()> {
     editor.get_window_size()?;
 
     editor_open(&mut editor, std::env::args().nth(1))?;
+    editor_set_status_message!(&mut editor, "HELP: Ctrl-Q = quit")?;
 
     while editor.keep_alive {
         editor_refresh_screen(&mut editor);
