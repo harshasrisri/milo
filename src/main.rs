@@ -321,6 +321,10 @@ fn editor_process_keypress(e: &mut EditorState) -> Result<()> {
             editor_move_cursor(e, motion);
             true
         }
+        Key::Printable(ch) => {
+            editor_insert_char(e, ch as char)?;
+            true
+        }
         _key => true,
     };
     Ok(())
@@ -498,13 +502,13 @@ fn editor_row_cursor_to_render(e: &EditorState) -> usize {
 fn editor_update_row(e: &mut EditorState, row: usize) -> Result<()> {
     match e.render_lines.len().cmp(&row) {
         std::cmp::Ordering::Equal => e.render_lines.push(String::new()),
-        std::cmp::Ordering::Greater => {
+        std::cmp::Ordering::Less => {
             return Err(Error::new(
                 ErrorKind::Other,
                 "Render row index our of bounds",
             ))
         }
-        std::cmp::Ordering::Less => {}
+        std::cmp::Ordering::Greater => {}
     }
 
     let text_line = e
@@ -538,10 +542,10 @@ fn editor_row_insert_char(e: &mut EditorState, ch: char) -> Result<()> {
         .ok_or_else(|| Error::new(ErrorKind::Other, "Text row index out of bounds"))?;
     e.cursor_col = min(e.cursor_col, text_line.len());
     text_line.insert(e.cursor_col, ch);
+    editor_update_row(e, e.cursor_row)?;
     Ok(())
 }
 
-#[allow(dead_code)]
 fn editor_insert_char(e: &mut EditorState, ch: char) -> Result<()> {
     if e.cursor_row == e.text_lines.len() {
         editor_append_row(e, "".to_string())?;
