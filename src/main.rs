@@ -531,14 +531,23 @@ fn editor_append_row(e: &mut EditorState, line: String) -> Result<()> {
     editor_update_row(e, e.text_lines.len() - 1)
 }
 
-#[allow(dead_code)]
-fn editor_row_insert_char(e: &mut EditorState, row: usize, mut col: usize, ch: char) -> Result<()> {
+fn editor_row_insert_char(e: &mut EditorState, ch: char) -> Result<()> {
     let text_line = e
         .text_lines
-        .get_mut(row)
+        .get_mut(e.cursor_row)
         .ok_or_else(|| Error::new(ErrorKind::Other, "Text row index out of bounds"))?;
-    col = min(col, text_line.len());
-    text_line.insert(col, ch);
+    e.cursor_col = min(e.cursor_col, text_line.len());
+    text_line.insert(e.cursor_col, ch);
+    Ok(())
+}
+
+#[allow(dead_code)]
+fn editor_insert_char(e: &mut EditorState, ch: char) -> Result<()> {
+    if e.cursor_row == e.text_lines.len() {
+        editor_append_row(e, "".to_string())?;
+    }
+    editor_row_insert_char(e, ch)?;
+    e.cursor_col += 1;
     Ok(())
 }
 
