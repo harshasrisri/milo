@@ -495,26 +495,51 @@ fn editor_row_cursor_to_render(e: &EditorState) -> usize {
     }
 }
 
-fn editor_update_row(e: &mut EditorState, line: String) {
-    e.render_lines.push(
-        line.chars()
-            .enumerate()
-            .map(|(n, c)| {
-                if c == '\t' {
-                    std::iter::repeat(' ')
-                        .take(TAB_STOP - (n % TAB_STOP))
-                        .collect()
-                } else {
-                    c.to_string()
-                }
-            })
-            .collect(),
-    );
+fn editor_update_row(e: &mut EditorState, row: usize) -> Result<()> {
+    match e.render_lines.len().cmp(&row) {
+        std::cmp::Ordering::Equal => e.render_lines.push(String::new()),
+        std::cmp::Ordering::Greater => {
+            return Err(Error::new(
+                ErrorKind::Other,
+                "Render row index our of bounds",
+            ))
+        }
+        std::cmp::Ordering::Less => {}
+    }
+
+    let text_line = e
+        .text_lines
+        .get(row)
+        .ok_or_else(|| Error::new(ErrorKind::Other, "Text row index out of bounds"))?;
+    let render_line = &mut e.render_lines[row];
+    render_line.clear();
+
+    render_line.extend(text_line.chars().enumerate().map(|(n, c)| {
+        if c == '\t' {
+            std::iter::repeat(' ')
+                .take(TAB_STOP - (n % TAB_STOP))
+                .collect()
+        } else {
+            c.to_string()
+        }
+    }));
+    Ok(())
 }
 
-fn editor_append_row(e: &mut EditorState, line: String) {
-    e.text_lines.push(line.clone());
-    editor_update_row(e, line);
+fn editor_append_row(e: &mut EditorState, line: String) -> Result<()> {
+    e.text_lines.push(line);
+    editor_update_row(e, e.text_lines.len() - 1)
+}
+
+#[allow(dead_code)]
+fn editor_row_insert_char(e: &mut EditorState, row: usize, mut col: usize, ch: char) -> Result<()> {
+    let text_line = e
+        .text_lines
+        .get_mut(row)
+        .ok_or_else(|| Error::new(ErrorKind::Other, "Text row index out of bounds"))?;
+    col = min(col, text_line.len());
+    text_line.insert(col, ch);
+    Ok(())
 }
 
 fn editor_open(e: &mut EditorState, file_arg: Option<String>) -> Result<()> {
@@ -522,7 +547,7 @@ fn editor_open(e: &mut EditorState, file_arg: Option<String>) -> Result<()> {
         e.filename = Some(file.clone().into());
         let line_iter = BufReader::new(File::open(file)?).lines();
         for line in line_iter {
-            editor_append_row(e, line?);
+            editor_append_row(e, line?)?;
         }
     }
     Ok(())
