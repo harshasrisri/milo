@@ -195,19 +195,15 @@ enum Motion {
     End,
 }
 
-#[allow(dead_code)]
-#[derive(Debug)]
-enum Edition {
-    Delete,
-    Backspace,
-}
-
 #[derive(Debug)]
 enum Key {
     Printable(u8),
     Move(Motion),
     Control(char),
-    Edit(Edition),
+    Delete,
+    Backspace,
+    Newline,
+    Escape,
 }
 
 fn editor_read_key(e: &mut EditorState) -> Result<Key> {
@@ -234,7 +230,7 @@ fn editor_read_key(e: &mut EditorState) -> Result<Key> {
             .collect::<Result<Vec<Option<u8>>>>()?;
 
         let (key, pending) = match seq.as_slice() {
-            [None, None, None] => (Key::Printable(key), None),
+            [None, None, None] => (Key::Escape, None),
 
             [Some(b'['), Some(b'A'), pending] => (Key::Move(Motion::Up), *pending),
             [Some(b'['), Some(b'B'), pending] => (Key::Move(Motion::Down), *pending),
@@ -254,7 +250,7 @@ fn editor_read_key(e: &mut EditorState) -> Result<Key> {
             [Some(b'['), Some(b'O'), Some(b'F')] => (Key::Move(Motion::End), None),
             [Some(b'['), Some(b'F'), pending] => (Key::Move(Motion::End), *pending),
 
-            [Some(b'['), Some(b'3'), Some(b'~')] => (Key::Edit(Edition::Delete), None),
+            [Some(b'['), Some(b'3'), Some(b'~')] => (Key::Delete, None),
 
             _ => {
                 e.key_buffer.clear();
@@ -268,10 +264,13 @@ fn editor_read_key(e: &mut EditorState) -> Result<Key> {
         }
 
         key
-    } else if key < 32 {
-        Key::Control((key + 64) as char)
     } else {
-        Key::Printable(key)
+        match key {
+            0xFF => Key::Backspace,
+            b'\r' => Key::Newline,
+            key if key < 32 => Key::Control((key + 64) as char),
+            key => Key::Printable(key),
+        }
     })
 }
 
@@ -325,6 +324,9 @@ fn editor_process_keypress(e: &mut EditorState) -> Result<()> {
             editor_insert_char(e, ch as char)?;
             true
         }
+        Key::Newline => true,
+        Key::Backspace | Key::Delete | Key::Control('H') => true,
+        Key::Escape | Key::Control('L') => true,
         _key => true,
     };
     Ok(())
