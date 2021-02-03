@@ -22,6 +22,7 @@ extern "C" {
 
 const TAB_STOP: usize = 8;
 const STATUS_HEIGHT: usize = 2; // 1 for Status bar. 1 for Status Message
+const TOTAL_QUIT_COUNT: usize = 3;
 
 trait TermiosAttrExt {
     fn get_attr(&mut self) -> Result<()>;
@@ -48,6 +49,18 @@ impl TermiosAttrExt for Termios {
     }
 }
 
+macro_rules! editor_set_status_message {
+    ($e:expr, $($arg:tt)*) => {{
+        $e.status_msg.clear();
+        if let Err(_) = $e.status_msg.write_fmt($crate::format_args!($($arg)*)) {
+            Err(Error::new(ErrorKind::Other, "Error setting status message"))
+        } else {
+            $e.status_msg_ts = Instant::now();
+            Ok(())
+        }
+    }}
+}
+
 struct EditorState {
     orig_termios: Termios,
     curr_termios: Termios,
@@ -66,6 +79,7 @@ struct EditorState {
     dirty: bool,
     status_msg: String,
     status_msg_ts: Instant,
+    quit_count: usize,
 }
 
 impl EditorState {
@@ -93,6 +107,7 @@ impl EditorState {
             filename: None,
             status_msg: String::new(),
             status_msg_ts: Instant::now(),
+            quit_count: TOTAL_QUIT_COUNT,
         })
     }
 
@@ -315,25 +330,33 @@ fn editor_move_cursor(e: &mut EditorState, motion: Motion) {
 
 fn editor_process_keypress(e: &mut EditorState) -> Result<()> {
     let key = editor_read_key(e)?;
-    e.keep_alive = match key {
-        Key::Control('Q') => false,
-        Key::Move(motion) => {
-            editor_move_cursor(e, motion);
-            true
+
+    match key {
+        Key::Control('Q') => {
+            if e.dirty && e.quit_count > 0 {
+                editor_set_status_message!(
+                    e,
+                    "WARNING!!! File has unsaved changes. Press Ctrl-Q {} more times to quit.",
+                    e.quit_count
+                )?;
+                e.quit_count -= 1;
+            } else {
+                e.keep_alive = false;
+            }
+            return Ok(()); // To prevent resetting QUIT_COUNT
         }
-        Key::Printable(ch) => {
-            editor_insert_char(e, ch as char)?;
-            true
-        }
-        Key::Newline => true,
-        Key::Backspace | Key::Delete | Key::Control('H') => true,
-        Key::Escape | Key::Control('L') => true,
-        Key::Control('S') => {
-            editor_save(e)?;
-            true
-        }
-        _key => true,
+        Key::Control('S') => editor_save(e)?,
+        Key::Move(motion) => editor_move_cursor(e, motion),
+        Key::Printable(ch) => editor_insert_char(e, ch as char)?,
+        Key::Newline
+        | Key::Escape
+        | Key::Control('L')
+        | Key::Backspace
+        | Key::Delete
+        | Key::Control('H') => {}
+        _key => {}
     };
+    e.quit_count = TOTAL_QUIT_COUNT;
     Ok(())
 }
 
@@ -482,18 +505,6 @@ fn editor_refresh_screen(e: &mut EditorState) {
     e.flush();
 }
 
-macro_rules! editor_set_status_message {
-    ($e:expr, $($arg:tt)*) => {{
-        $e.status_msg.clear();
-        if let Err(_) = $e.status_msg.write_fmt($crate::format_args!($($arg)*)) {
-            Err(Error::new(ErrorKind::Other, "Error setting status message"))
-        } else {
-            $e.status_msg_ts = Instant::now();
-            Ok(())
-        }
-    }}
-}
-
 fn editor_row_cursor_to_render(e: &EditorState) -> usize {
     if let Some(row) = e.text_lines.get(e.cursor_row) {
         row.chars().take(e.cursor_col).fold(0, |rx, c| {
@@ -567,7 +578,7 @@ fn editor_insert_char(e: &mut EditorState, ch: char) -> Result<()> {
 }
 
 fn editor_rows_to_string(e: &EditorState) -> String {
-    let mut content = e.text_lines.join("\n").to_string();
+    let mut content = e.text_lines.join("\n");
     content.push('\n');
     content
 }
@@ -580,8 +591,10 @@ fn editor_save(e: &mut EditorState) -> Result<()> {
         } else {
             editor_set_status_message!(e, "{} bytes written to disk", content.len())?;
         }
+        e.dirty = false;
+    } else {
+        editor_set_status_message!(e, "Filename not set!!!")?;
     }
-    e.dirty = false;
     Ok(())
 }
 
