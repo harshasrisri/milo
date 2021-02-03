@@ -326,6 +326,10 @@ fn editor_process_keypress(e: &mut EditorState) -> Result<()> {
         Key::Newline => true,
         Key::Backspace | Key::Delete | Key::Control('H') => true,
         Key::Escape | Key::Control('L') => true,
+        Key::Control('S') => {
+            editor_save(e)?;
+            true
+        }
         _key => true,
     };
     Ok(())
@@ -477,6 +481,7 @@ fn editor_refresh_screen(e: &mut EditorState) {
 
 macro_rules! editor_set_status_message {
     ($e:expr, $($arg:tt)*) => {{
+        $e.status_msg.clear();
         if let Err(_) = $e.status_msg.write_fmt($crate::format_args!($($arg)*)) {
             Err(Error::new(ErrorKind::Other, "Error setting status message"))
         } else {
@@ -556,14 +561,15 @@ fn editor_insert_char(e: &mut EditorState, ch: char) -> Result<()> {
     Ok(())
 }
 
-fn editor_rows_to_string(e: &mut EditorState) -> String {
-    e.text_lines.join("\n").to_string()
+fn editor_rows_to_string(e: &EditorState) -> String {
+    let mut content = e.text_lines.join("\n").to_string();
+    content.push('\n');
+    content
 }
 
 fn editor_save(e: &mut EditorState) -> Result<()> {
-    if let Some(mut filename) = e.filename.clone() {
+    if let Some(filename) = &e.filename {
         let content = editor_rows_to_string(e);
-        filename.push(".copy");
         std::fs::write(filename, content.as_bytes())?;
     }
     Ok(())
