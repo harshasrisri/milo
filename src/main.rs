@@ -570,7 +570,11 @@ fn editor_rows_to_string(e: &EditorState) -> String {
 fn editor_save(e: &mut EditorState) -> Result<()> {
     if let Some(filename) = &e.filename {
         let content = editor_rows_to_string(e);
-        std::fs::write(filename, content.as_bytes())?;
+        if let Err(err) = std::fs::write(filename, content.as_bytes()) {
+            editor_set_status_message!(e, "Can't save! I/O error: {}", err)?;
+        } else {
+            editor_set_status_message!(e, "{} bytes written to disk", content.len())?;
+        }
     }
     Ok(())
 }
@@ -593,7 +597,7 @@ fn main() -> Result<()> {
     editor.get_window_size()?;
 
     editor_open(&mut editor, std::env::args().nth(1))?;
-    editor_set_status_message!(&mut editor, "HELP: Ctrl-Q = quit")?;
+    editor_set_status_message!(&mut editor, "HELP: Ctrl-S = save | Ctrl-Q = quit")?;
 
     while editor.keep_alive {
         editor_refresh_screen(&mut editor);
