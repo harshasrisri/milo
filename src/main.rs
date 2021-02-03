@@ -63,6 +63,7 @@ struct EditorState {
     row_offset: usize,
     col_offset: usize,
     filename: Option<PathBuf>,
+    dirty: bool,
     status_msg: String,
     status_msg_ts: Instant,
 }
@@ -88,6 +89,7 @@ impl EditorState {
             render_lines: Vec::new(),
             row_offset: 0,
             col_offset: 0,
+            dirty: false,
             filename: None,
             status_msg: String::new(),
             status_msg_ts: Instant::now(),
