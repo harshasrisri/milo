@@ -48,7 +48,6 @@ impl TermiosAttrExt for Termios {
     }
 }
 
-#[allow(dead_code)]
 struct EditorState {
     orig_termios: Termios,
     curr_termios: Termios,
@@ -555,6 +554,10 @@ fn editor_insert_char(e: &mut EditorState, ch: char) -> Result<()> {
     editor_row_insert_char(e, ch)?;
     e.cursor_col += 1;
     Ok(())
+}
+
+fn editor_rows_to_string(e: &mut EditorState) -> String {
+    e.text_lines.join("\n").to_string()
 }
 
 fn editor_open(e: &mut EditorState, file_arg: Option<String>) -> Result<()> {
