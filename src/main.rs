@@ -560,6 +560,15 @@ fn editor_rows_to_string(e: &mut EditorState) -> String {
     e.text_lines.join("\n").to_string()
 }
 
+fn editor_save(e: &mut EditorState) -> Result<()> {
+    if let Some(mut filename) = e.filename.clone() {
+        let content = editor_rows_to_string(e);
+        filename.push(".copy");
+        std::fs::write(filename, content.as_bytes())?;
+    }
+    Ok(())
+}
+
 fn editor_open(e: &mut EditorState, file_arg: Option<String>) -> Result<()> {
     if let Some(file) = file_arg {
         e.filename = Some(file.clone().into());
