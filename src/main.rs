@@ -581,6 +581,7 @@ fn editor_save(e: &mut EditorState) -> Result<()> {
             editor_set_status_message!(e, "{} bytes written to disk", content.len())?;
         }
     }
+    e.dirty = false;
     Ok(())
 }
 
@@ -592,6 +593,7 @@ fn editor_open(e: &mut EditorState, file_arg: Option<String>) -> Result<()> {
             editor_append_row(e, line?)?;
         }
     }
+    e.dirty = false;
     Ok(())
 }
 
