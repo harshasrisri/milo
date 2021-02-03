@@ -541,6 +541,7 @@ fn editor_update_row(e: &mut EditorState, row: usize) -> Result<()> {
 
 fn editor_append_row(e: &mut EditorState, line: String) -> Result<()> {
     e.text_lines.push(line);
+    e.dirty = true;
     editor_update_row(e, e.text_lines.len() - 1)
 }
 
@@ -552,6 +553,7 @@ fn editor_row_insert_char(e: &mut EditorState, ch: char) -> Result<()> {
     e.cursor_col = min(e.cursor_col, text_line.len());
     text_line.insert(e.cursor_col, ch);
     editor_update_row(e, e.cursor_row)?;
+    e.dirty = true;
     Ok(())
 }
 
