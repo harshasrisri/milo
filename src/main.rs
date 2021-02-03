@@ -412,10 +412,11 @@ fn editor_draw_status_bar(e: &mut EditorState) {
         .map(|file| file.to_str().unwrap_or("<file-name-not-utf8>"))
         .unwrap_or("[No Name]");
     let status_left = format!(
-        "{name:<.*} - {lc} lines",
+        "{name:<.*} - {lc} lines {dirty}",
         FILE_NAME_WIDTH,
         name = filename,
-        lc = e.text_lines.len()
+        lc = e.text_lines.len(),
+        dirty = if e.dirty { "(modified)" } else { "" },
     );
     let status_right = format!("{}/{}", e.cursor_row + 1, e.text_lines.len());
     let num_spaces = (e.window_size.ws_col as usize)
