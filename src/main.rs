@@ -342,12 +342,12 @@ fn editor_process_keypress(e: &mut EditorState) -> Result<()> {
         Key::Control('S') => editor_save(e)?,
         Key::Move(motion) => editor_move_cursor(e, motion),
         Key::Printable(ch) => editor_insert_char(e, ch as char),
-        Key::Newline
-        | Key::Escape
-        | Key::Control('L')
-        | Key::Backspace
-        | Key::Delete
-        | Key::Control('H') => {}
+        Key::Newline | Key::Escape | Key::Control('L') => {}
+        Key::Backspace | Key::Control('H') => editor_delete_char(e),
+        Key::Delete => {
+            editor_move_cursor(e, Motion::Right);
+            editor_delete_char(e);
+        }
         _key => {}
     };
     e.quit_count = TOTAL_QUIT_COUNT;
@@ -573,11 +573,9 @@ fn editor_row_delete_char(e: &mut EditorState) {
 }
 
 fn editor_delete_char(e: &mut EditorState) {
-    if e.cursor_row < e.text_lines.len() {
-        if e.cursor_col > 0 {
-            editor_row_delete_char(e);
-            e.cursor_col -= 1;
-        }
+    if e.cursor_row < e.text_lines.len() && e.cursor_col > 0 {
+        e.cursor_col -= 1;
+        editor_row_delete_char(e);
     }
 }
 
