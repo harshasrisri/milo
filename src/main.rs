@@ -560,6 +560,18 @@ fn editor_insert_char(e: &mut EditorState, ch: char) {
     e.cursor_col += 1;
 }
 
+fn editor_row_delete_char(e: &mut EditorState) {
+    let text_line = e
+        .text_lines
+        .get_mut(e.cursor_row)
+        .expect("Text row index out of bounds");
+    if e.cursor_col < text_line.len() {
+        text_line.remove(e.cursor_col);
+        editor_update_row(e, e.cursor_row);
+        e.dirty = true;
+    }
+}
+
 fn editor_rows_to_string(e: &EditorState) -> String {
     let mut content = e.text_lines.join("\n");
     content.push('\n');
