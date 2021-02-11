@@ -52,11 +52,8 @@ impl TermiosAttrExt for Termios {
 macro_rules! editor_set_status_message {
     ($e:expr, $($arg:tt)*) => {{
         $e.status_msg.clear();
-        if let Err(_) = $e.status_msg.write_fmt($crate::format_args!($($arg)*)) {
-            Err(Error::new(ErrorKind::Other, "Error setting status message"))
-        } else {
+        if let Ok(_) = $e.status_msg.write_fmt($crate::format_args!($($arg)*)) {
             $e.status_msg_ts = Instant::now();
-            Ok(())
         }
     }}
 }
@@ -147,7 +144,12 @@ impl EditorState {
             match key {
                 Key::Printable(b'R') => break,
                 Key::Printable(c) => cursor_buf.push(c),
-                _ => panic!("Unexpected input read"),
+                _ => {
+                    return Err(Error::new(
+                        ErrorKind::Other,
+                        "Unexpected input while reading window size",
+                    ))
+                }
             }
         }
 
@@ -169,14 +171,6 @@ impl EditorState {
 
     fn append(&mut self, content: &str) {
         self.term_buffer.push_str(content);
-    }
-
-    #[allow(dead_code)]
-    fn append_with<I>(&mut self, c_iter: I)
-    where
-        I: IntoIterator<Item = char>,
-    {
-        self.term_buffer.extend(c_iter);
     }
 
     fn flush(&mut self) {
@@ -282,7 +276,7 @@ fn editor_read_key(e: &mut EditorState) -> Result<Key> {
         key
     } else {
         match key {
-            0xFF => Key::Backspace,
+            127 => Key::Backspace,
             b'\r' => Key::Newline,
             key if key < 32 => Key::Control((key + 64) as char),
             key => Key::Printable(key),
@@ -338,7 +332,7 @@ fn editor_process_keypress(e: &mut EditorState) -> Result<()> {
                     e,
                     "WARNING!!! File has unsaved changes. Press Ctrl-Q {} more times to quit.",
                     e.quit_count
-                )?;
+                );
                 e.quit_count -= 1;
             } else {
                 e.keep_alive = false;
@@ -347,7 +341,7 @@ fn editor_process_keypress(e: &mut EditorState) -> Result<()> {
         }
         Key::Control('S') => editor_save(e)?,
         Key::Move(motion) => editor_move_cursor(e, motion),
-        Key::Printable(ch) => editor_insert_char(e, ch as char)?,
+        Key::Printable(ch) => editor_insert_char(e, ch as char),
         Key::Newline
         | Key::Escape
         | Key::Control('L')
@@ -519,22 +513,14 @@ fn editor_row_cursor_to_render(e: &EditorState) -> usize {
     }
 }
 
-fn editor_update_row(e: &mut EditorState, row: usize) -> Result<()> {
+fn editor_update_row(e: &mut EditorState, row: usize) {
     match e.render_lines.len().cmp(&row) {
         std::cmp::Ordering::Equal => e.render_lines.push(String::new()),
-        std::cmp::Ordering::Less => {
-            return Err(Error::new(
-                ErrorKind::Other,
-                "Render row index our of bounds",
-            ))
-        }
+        std::cmp::Ordering::Less => panic!("Render row index our of bounds"),
         std::cmp::Ordering::Greater => {}
     }
 
-    let text_line = e
-        .text_lines
-        .get(row)
-        .ok_or_else(|| Error::new(ErrorKind::Other, "Text row index out of bounds"))?;
+    let text_line = e.text_lines.get(row).expect("Text row index out of bounds");
     let render_line = &mut e.render_lines[row];
     render_line.clear();
 
@@ -547,34 +533,31 @@ fn editor_update_row(e: &mut EditorState, row: usize) -> Result<()> {
             c.to_string()
         }
     }));
-    Ok(())
 }
 
-fn editor_append_row(e: &mut EditorState, line: String) -> Result<()> {
+fn editor_append_row(e: &mut EditorState, line: String) {
     e.text_lines.push(line);
     e.dirty = true;
-    editor_update_row(e, e.text_lines.len() - 1)
+    editor_update_row(e, e.text_lines.len() - 1);
 }
 
-fn editor_row_insert_char(e: &mut EditorState, ch: char) -> Result<()> {
+fn editor_row_insert_char(e: &mut EditorState, ch: char) {
     let text_line = e
         .text_lines
         .get_mut(e.cursor_row)
-        .ok_or_else(|| Error::new(ErrorKind::Other, "Text row index out of bounds"))?;
+        .expect("Text row index out of bounds");
     e.cursor_col = min(e.cursor_col, text_line.len());
     text_line.insert(e.cursor_col, ch);
-    editor_update_row(e, e.cursor_row)?;
+    editor_update_row(e, e.cursor_row);
     e.dirty = true;
-    Ok(())
 }
 
-fn editor_insert_char(e: &mut EditorState, ch: char) -> Result<()> {
+fn editor_insert_char(e: &mut EditorState, ch: char) {
     if e.cursor_row == e.text_lines.len() {
-        editor_append_row(e, "".to_string())?;
+        editor_append_row(e, "".to_string());
     }
-    editor_row_insert_char(e, ch)?;
+    editor_row_insert_char(e, ch);
     e.cursor_col += 1;
-    Ok(())
 }
 
 fn editor_rows_to_string(e: &EditorState) -> String {
@@ -587,13 +570,13 @@ fn editor_save(e: &mut EditorState) -> Result<()> {
     if let Some(filename) = &e.filename {
         let content = editor_rows_to_string(e);
         if let Err(err) = std::fs::write(filename, content.as_bytes()) {
-            editor_set_status_message!(e, "Can't save! I/O error: {}", err)?;
-        } else {
-            editor_set_status_message!(e, "{} bytes written to disk", content.len())?;
+            editor_set_status_message!(e, "Can't save! I/O error: {}", err);
+            return Err(err);
         }
+        editor_set_status_message!(e, "{} bytes written to disk", content.len());
         e.dirty = false;
     } else {
-        editor_set_status_message!(e, "Filename not set!!!")?;
+        editor_set_status_message!(e, "Filename not set!!!");
     }
     Ok(())
 }
@@ -603,7 +586,7 @@ fn editor_open(e: &mut EditorState, file_arg: Option<String>) -> Result<()> {
         e.filename = Some(file.clone().into());
         let line_iter = BufReader::new(File::open(file)?).lines();
         for line in line_iter {
-            editor_append_row(e, line?)?;
+            editor_append_row(e, line?);
         }
     }
     e.dirty = false;
@@ -617,7 +600,7 @@ fn main() -> Result<()> {
     editor.get_window_size()?;
 
     editor_open(&mut editor, std::env::args().nth(1))?;
-    editor_set_status_message!(&mut editor, "HELP: Ctrl-S = save | Ctrl-Q = quit")?;
+    editor_set_status_message!(&mut editor, "HELP: Ctrl-S = save | Ctrl-Q = quit");
 
     while editor.keep_alive {
         editor_refresh_screen(&mut editor);
