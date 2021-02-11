@@ -572,6 +572,15 @@ fn editor_row_delete_char(e: &mut EditorState) {
     }
 }
 
+fn editor_delete_char(e: &mut EditorState) {
+    if e.cursor_row < e.text_lines.len() {
+        if e.cursor_col > 0 {
+            editor_row_delete_char(e);
+            e.cursor_col -= 1;
+        }
+    }
+}
+
 fn editor_rows_to_string(e: &EditorState) -> String {
     let mut content = e.text_lines.join("\n");
     content.push('\n');
