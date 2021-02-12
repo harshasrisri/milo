@@ -280,6 +280,17 @@ fn editor_refresh_screen(e: &mut EditorState) {
     e.terminal.flush();
 }
 
+fn editor_insert_new_line(e: &mut EditorState) {
+    if e.cursor_col == 0 {
+        editor_insert_row(e, e.cursor_row, String::new());
+    } else {
+        let tail = e.lines[e.cursor_row].split_off(e.cursor_col);
+        editor_insert_row(e, e.cursor_row + 1, tail);
+    }
+    e.cursor_row += 1;
+    e.cursor_col = 0;
+}
+
 fn editor_insert_row(e: &mut EditorState, index: usize, line: String) {
     if index > e.lines.len() {
         return;
@@ -290,7 +301,7 @@ fn editor_insert_row(e: &mut EditorState, index: usize, line: String) {
 
 fn editor_insert_char(e: &mut EditorState, ch: char) {
     if e.cursor_row == e.lines.len() {
-        editor_insert_row(e, e.cursor_row, "".to_string());
+        editor_insert_row(e, e.cursor_row, String::new());
     }
     if let Some(line) = e.lines.get_mut(e.cursor_row) {
         line.insert(e.cursor_col, ch);

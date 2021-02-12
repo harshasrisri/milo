@@ -56,6 +56,12 @@ impl Line {
         })
     }
 
+    pub fn split_off(&mut self, index: usize) -> String {
+        let tail = self.actual.split_off(index);
+        self.update();
+        tail
+    }
+
     fn update(&mut self) {
         self.rendered.clear();
         for ch in self.actual.chars() {
