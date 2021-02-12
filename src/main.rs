@@ -305,6 +305,13 @@ fn editor_delete_char(e: &mut EditorState) {
     }
 }
 
+fn editor_delete_row(e: &mut EditorState) {
+    if e.cursor_row < e.lines.len() {
+        e.lines.remove(e.cursor_row);
+        e.dirty = true;
+    }
+}
+
 fn editor_rows_to_string(e: &EditorState) -> String {
     let mut content = e
         .lines
