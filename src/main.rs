@@ -220,6 +220,9 @@ fn editor_prompt(e: &mut EditorState, prompt: &str) -> Result<Option<String>> {
                     return Ok(Some(reply));
                 }
             }
+            Key::Delete | Key::Backspace | Key::Control('H') => {
+                reply.pop();
+            }
             _ => {}
         }
     }

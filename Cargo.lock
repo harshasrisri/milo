@@ -8,7 +8,7 @@ checksum = "1482821306169ec4d07f6aca392a4681f66c75c9918aa49641a2595db64053cb"
 
 [[package]]
 name = "txtdt"
-version = "0.3.0"
+version = "0.5.0"
 dependencies = [
  "libc",
 ]
