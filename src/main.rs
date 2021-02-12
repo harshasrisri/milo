@@ -6,8 +6,8 @@ use std::io::Result;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::time::Instant;
-use txtdt::terminal::{Key, Motion, Terminal};
 use txtdt::line::Line;
+use txtdt::terminal::{Key, Motion, Terminal};
 
 const STATUS_HEIGHT: usize = 2; // 1 for Status bar. 1 for Status Message
 const TOTAL_QUIT_COUNT: usize = 3;
@@ -91,10 +91,7 @@ fn editor_move_cursor(e: &mut EditorState, motion: Motion) {
         }
         Motion::PgUp => e.cursor_row = e.cursor_row.saturating_sub(e.rows()),
         Motion::PgDn => {
-            e.cursor_row = min(
-                e.lines.len().saturating_sub(1),
-                e.cursor_row + e.rows(),
-            )
+            e.cursor_row = min(e.lines.len().saturating_sub(1), e.cursor_row + e.rows())
         }
         Motion::Home => e.cursor_col = 0,
         Motion::End => e.cursor_col = e.cols() - 1,
@@ -295,8 +292,9 @@ fn editor_insert_char(e: &mut EditorState, ch: char) {
 }
 
 fn editor_delete_char(e: &mut EditorState) {
-    if e.cursor_row == e.lines.len() { return; }
-    if (e.cursor_row, e.cursor_col) == (0, 0) { return; }
+    if (e.cursor_row, e.cursor_col) == (0, 0) {
+        return;
+    }
     if let Some(line) = e.lines.get_mut(e.cursor_row) {
         if e.cursor_col > 0 {
             line.remove(e.cursor_col - 1);

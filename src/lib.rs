@@ -1,2 +1,2 @@
-pub mod terminal;
 pub mod line;
+pub mod terminal;

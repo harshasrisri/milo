@@ -19,6 +19,10 @@ impl Line {
         self.actual.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.actual.is_empty()
+    }
+
     pub fn insert(&mut self, pos: usize, ch: char) {
         self.actual.insert(pos, ch);
         self.update();
@@ -45,7 +49,7 @@ impl Line {
     pub fn render_position(&self, pos: usize) -> usize {
         self.actual.chars().take(pos).fold(0, |rx, c| {
             if c == '\t' {
-                rx + (TAB_STOP - 1) - (rx % TAB_STOP)
+                rx + TAB_STOP - (rx % TAB_STOP)
             } else {
                 rx + 1
             }
@@ -54,14 +58,15 @@ impl Line {
 
     fn update(&mut self) {
         self.rendered.clear();
-        self.rendered.extend(self.actual.chars().enumerate().map(|(n, c)| {
-            if c == '\t' {
-                std::iter::repeat(' ')
-                    .take(TAB_STOP - (n % TAB_STOP))
-                    .collect()
+        for ch in self.actual.chars() {
+            if ch == '\t' {
+                self.rendered.push(' ');
+                while self.rendered.len() % TAB_STOP != 0 {
+                    self.rendered.push(' ');
+                }
             } else {
-                c.to_string()
+                self.rendered.push(ch);
             }
-        }));
+        }
     }
 }
