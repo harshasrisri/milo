@@ -254,7 +254,11 @@ fn editor_draw_status_bar(e: &mut EditorState) {
 }
 
 fn editor_scroll(e: &mut EditorState) {
-    e.render_col = e.lines[e.cursor_row].render_position(e.cursor_col);
+    e.render_col = e
+        .lines
+        .get(e.cursor_row)
+        .map(|line| line.render_position(e.cursor_col))
+        .unwrap_or_default();
 
     if e.cursor_row < e.row_offset {
         e.row_offset = e.cursor_row;
@@ -368,17 +372,20 @@ fn editor_rows_to_string(e: &EditorState) -> String {
 }
 
 fn editor_save(e: &mut EditorState) -> Result<()> {
-    if let Some(filename) = &e.filename {
-        let content = editor_rows_to_string(e);
-        if let Err(err) = std::fs::write(filename, content.as_bytes()) {
-            editor_set_status_message!(e, "Can't save! I/O error: {}", err);
-            return Err(err);
-        }
-        editor_set_status_message!(e, "{} bytes written to disk", content.len());
-        e.dirty = false;
+    let filename = if let Some(filename) = &e.filename {
+        filename.clone()
     } else {
-        editor_set_status_message!(e, "Filename not set!!!");
+        editor_prompt(e, "Save as: ")?.into()
+    };
+
+    let content = editor_rows_to_string(e);
+    if let Err(err) = std::fs::write(filename, content.as_bytes()) {
+        editor_set_status_message!(e, "Can't save! I/O error: {}", err);
+        return Err(err);
     }
+
+    editor_set_status_message!(e, "{} bytes written to disk", content.len());
+    e.dirty = false;
     Ok(())
 }
 
