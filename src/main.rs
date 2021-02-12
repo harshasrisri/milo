@@ -122,7 +122,9 @@ fn editor_process_keypress(e: &mut EditorState) -> Result<()> {
         Key::Control('S') => editor_save(e)?,
         Key::Move(motion) => editor_move_cursor(e, motion),
         Key::Printable(ch) => editor_insert_char(e, ch as char),
-        Key::Newline | Key::Escape | Key::Control('L') => {}
+        Key::Tab => editor_insert_char(e, '\t'),
+        Key::Newline => editor_insert_new_line(e),
+        Key::Escape | Key::Control('L') => {}
         Key::Backspace | Key::Control('H') => editor_delete_char(e),
         Key::Delete => {
             editor_move_cursor(e, Motion::Right);

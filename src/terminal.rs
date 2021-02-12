@@ -112,6 +112,7 @@ pub enum Key {
     Backspace,
     Newline,
     Escape,
+    Tab,
 }
 
 pub struct Terminal {
@@ -230,6 +231,7 @@ impl Terminal {
             match key {
                 127 => Key::Backspace,
                 b'\r' => Key::Newline,
+                b'\t' => Key::Tab,
                 key if key < 32 => Key::Control((key + 64) as char),
                 key => Key::Printable(key),
             }
