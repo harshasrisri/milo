@@ -296,11 +296,18 @@ fn editor_insert_char(e: &mut EditorState, ch: char) {
 
 fn editor_delete_char(e: &mut EditorState) {
     if e.cursor_row == e.lines.len() { return; }
+    if (e.cursor_row, e.cursor_col) == (0, 0) { return; }
     if let Some(line) = e.lines.get_mut(e.cursor_row) {
         if e.cursor_col > 0 {
             line.remove(e.cursor_col - 1);
             e.cursor_col -= 1;
             e.dirty = true;
+        } else {
+            e.cursor_col = e.lines[e.cursor_row - 1].len();
+            let tail = e.lines[e.cursor_row].content().to_string();
+            e.lines[e.cursor_row - 1].push_str(&tail);
+            editor_delete_row(e);
+            e.cursor_row -= 1;
         }
     }
 }
