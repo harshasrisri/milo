@@ -121,7 +121,7 @@ fn editor_process_keypress(e: &mut EditorState) -> Result<()> {
         }
         Key::Control('S') => editor_save(e)?,
         Key::Move(motion) => editor_move_cursor(e, motion),
-        Key::Printable(ch) => editor_insert_char(e, ch as char),
+        Key::Printable(ch) => editor_insert_char(e, ch),
         Key::Tab => editor_insert_char(e, '\t'),
         Key::Newline => editor_insert_new_line(e),
         Key::Escape | Key::Control('L') => {}
@@ -200,6 +200,24 @@ fn editor_draw_rows(e: &mut EditorState) {
         editor_draw_home_screen(e)
     } else {
         editor_draw_content(e)
+    }
+}
+
+fn editor_prompt(e: &mut EditorState, prompt: &str) -> Result<String> {
+    let mut reply = String::new();
+    loop {
+        editor_set_status_message!(e, "{}{}", prompt, reply);
+        editor_refresh_screen(e);
+        match e.terminal.read_key()? {
+            Key::Printable(ch) => reply.push(ch),
+            Key::Newline => {
+                if !reply.is_empty() {
+                    editor_set_status_message!(e, "");
+                    return Ok(reply);
+                }
+            }
+            _ => {}
+        }
     }
 }
 

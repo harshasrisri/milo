@@ -105,7 +105,7 @@ pub enum Motion {
 }
 
 pub enum Key {
-    Printable(u8),
+    Printable(char),
     Move(Motion),
     Control(char),
     Delete,
@@ -233,7 +233,7 @@ impl Terminal {
                 b'\r' => Key::Newline,
                 b'\t' => Key::Tab,
                 key if key < 32 => Key::Control((key + 64) as char),
-                key => Key::Printable(key),
+                key => Key::Printable(key as char),
             }
         })
     }
