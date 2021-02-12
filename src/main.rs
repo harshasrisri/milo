@@ -280,14 +280,17 @@ fn editor_refresh_screen(e: &mut EditorState) {
     e.terminal.flush();
 }
 
-fn editor_append_row(e: &mut EditorState, line: String) {
-    e.lines.push(Line::new(line));
+fn editor_insert_row(e: &mut EditorState, index: usize, line: String) {
+    if index > e.lines.len() {
+        return;
+    }
+    e.lines.insert(index, Line::new(line));
     e.dirty = true;
 }
 
 fn editor_insert_char(e: &mut EditorState, ch: char) {
     if e.cursor_row == e.lines.len() {
-        editor_append_row(e, "".to_string());
+        editor_insert_row(e, e.cursor_row, "".to_string());
     }
     if let Some(line) = e.lines.get_mut(e.cursor_row) {
         line.insert(e.cursor_col, ch);
@@ -353,7 +356,7 @@ fn editor_open(e: &mut EditorState, file_arg: Option<String>) -> Result<()> {
         e.filename = Some(file.clone().into());
         let line_iter = BufReader::new(File::open(file)?).lines();
         for line in line_iter {
-            editor_append_row(e, line?);
+            editor_insert_row(e, e.lines.len(), line?);
         }
     }
     e.dirty = false;
