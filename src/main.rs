@@ -7,8 +7,8 @@ use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::time::Instant;
 use txtdt::terminal::{Key, Motion, Terminal};
+use txtdt::line::Line;
 
-const TAB_STOP: usize = 8;
 const STATUS_HEIGHT: usize = 2; // 1 for Status bar. 1 for Status Message
 const TOTAL_QUIT_COUNT: usize = 3;
 const FILE_NAME_WIDTH: usize = 20;
@@ -29,8 +29,7 @@ struct EditorState {
     cursor_col: usize,
     cursor_row: usize,
     keep_alive: bool,
-    text_lines: Vec<String>,
-    render_lines: Vec<String>,
+    lines: Vec<Line>,
     row_offset: usize,
     col_offset: usize,
     filename: Option<PathBuf>,
@@ -48,8 +47,7 @@ impl EditorState {
             cursor_col: 0,
             cursor_row: 0,
             keep_alive: true,
-            text_lines: Vec::new(),
-            render_lines: Vec::new(),
+            lines: Vec::new(),
             row_offset: 0,
             col_offset: 0,
             dirty: false,
@@ -77,15 +75,15 @@ fn editor_move_cursor(e: &mut EditorState, motion: Motion) {
                 e.cursor_col -= 1;
             } else if e.cursor_row > 0 {
                 e.cursor_row -= 1;
-                e.cursor_col = e.text_lines[e.cursor_row].len();
+                e.cursor_col = e.lines[e.cursor_row].len();
             }
         }
-        Motion::Down => e.cursor_row = min(e.text_lines.len().saturating_sub(1), e.cursor_row + 1),
+        Motion::Down => e.cursor_row = min(e.lines.len().saturating_sub(1), e.cursor_row + 1),
         Motion::Right => {
-            if let Some(row) = e.text_lines.get(e.cursor_row) {
+            if let Some(row) = e.lines.get(e.cursor_row) {
                 if e.cursor_col < row.len() {
                     e.cursor_col += 1;
-                } else if e.cursor_row < e.text_lines.len() - 1 {
+                } else if e.cursor_row < e.lines.len() - 1 {
                     e.cursor_row += 1;
                     e.cursor_col = 0;
                 }
@@ -94,7 +92,7 @@ fn editor_move_cursor(e: &mut EditorState, motion: Motion) {
         Motion::PgUp => e.cursor_row = e.cursor_row.saturating_sub(e.rows()),
         Motion::PgDn => {
             e.cursor_row = min(
-                e.text_lines.len().saturating_sub(1),
+                e.lines.len().saturating_sub(1),
                 e.cursor_row + e.rows(),
             )
         }
@@ -102,7 +100,7 @@ fn editor_move_cursor(e: &mut EditorState, motion: Motion) {
         Motion::End => e.cursor_col = e.cols() - 1,
     }
 
-    if let Some(row) = e.text_lines.get(e.cursor_row) {
+    if let Some(row) = e.lines.get(e.cursor_row) {
         e.cursor_col = min(row.len(), e.cursor_col);
     }
 }
@@ -115,7 +113,7 @@ fn editor_process_keypress(e: &mut EditorState) -> Result<()> {
             if e.dirty && e.quit_count > 0 {
                 editor_set_status_message!(
                     e,
-                    "WARNING!!! File has unsaved changes. Press Ctrl-Q {} more times to quit.",
+                    "WARNING!!! Press Ctrl-Q {} more times to quit. File has unsaved changes.",
                     e.quit_count
                 );
                 e.quit_count -= 1;
@@ -175,11 +173,11 @@ fn editor_draw_home_screen(e: &mut EditorState) {
 
 fn editor_draw_content(e: &mut EditorState) {
     e.terminal.append(
-        e.render_lines
+        e.lines
             .iter()
             .skip(e.row_offset)
-            .map(|line| line.as_str())
-            .chain(std::iter::repeat("~").take(e.rows().saturating_sub(e.text_lines.len())))
+            .map(|line| line.rendered())
+            .chain(std::iter::repeat("~").take(e.rows().saturating_sub(e.lines.len())))
             .map(|line| {
                 line.chars()
                     .skip(e.col_offset)
@@ -194,7 +192,7 @@ fn editor_draw_content(e: &mut EditorState) {
 }
 
 fn editor_draw_rows(e: &mut EditorState) {
-    if e.text_lines.is_empty() {
+    if e.lines.is_empty() {
         editor_draw_home_screen(e)
     } else {
         editor_draw_content(e)
@@ -212,10 +210,10 @@ fn editor_draw_status_bar(e: &mut EditorState) {
         "{name:<.*} - {lc} lines {dirty}",
         FILE_NAME_WIDTH,
         name = filename,
-        lc = e.text_lines.len(),
+        lc = e.lines.len(),
         dirty = if e.dirty { "(modified)" } else { "" },
     );
-    let status_right = format!("{}/{}", e.cursor_row + 1, e.text_lines.len());
+    let status_right = format!("{}/{}", e.cursor_row + 1, e.lines.len());
     let num_spaces = e
         .cols()
         .saturating_sub(status_left.len())
@@ -234,7 +232,7 @@ fn editor_draw_status_bar(e: &mut EditorState) {
 }
 
 fn editor_scroll(e: &mut EditorState) {
-    e.render_col = editor_row_cursor_to_render(e);
+    e.render_col = e.lines[e.cursor_row].render_position(e.cursor_col);
 
     if e.cursor_row < e.row_offset {
         e.row_offset = e.cursor_row;
@@ -280,88 +278,40 @@ fn editor_refresh_screen(e: &mut EditorState) {
     e.terminal.flush();
 }
 
-fn editor_row_cursor_to_render(e: &EditorState) -> usize {
-    if let Some(row) = e.text_lines.get(e.cursor_row) {
-        row.chars().take(e.cursor_col).fold(0, |rx, c| {
-            if c == '\t' {
-                rx + (TAB_STOP - 1) - (rx % TAB_STOP)
-            } else {
-                rx + 1
-            }
-        })
-    } else {
-        0
-    }
-}
-
-fn editor_update_row(e: &mut EditorState, row: usize) {
-    match e.render_lines.len().cmp(&row) {
-        std::cmp::Ordering::Equal => e.render_lines.push(String::new()),
-        std::cmp::Ordering::Less => panic!("Render row index our of bounds"),
-        std::cmp::Ordering::Greater => {}
-    }
-
-    let text_line = e.text_lines.get(row).expect("Text row index out of bounds");
-    let render_line = &mut e.render_lines[row];
-    render_line.clear();
-
-    render_line.extend(text_line.chars().enumerate().map(|(n, c)| {
-        if c == '\t' {
-            std::iter::repeat(' ')
-                .take(TAB_STOP - (n % TAB_STOP))
-                .collect()
-        } else {
-            c.to_string()
-        }
-    }));
-}
-
 fn editor_append_row(e: &mut EditorState, line: String) {
-    e.text_lines.push(line);
-    e.dirty = true;
-    editor_update_row(e, e.text_lines.len() - 1);
-}
-
-fn editor_row_insert_char(e: &mut EditorState, ch: char) {
-    let text_line = e
-        .text_lines
-        .get_mut(e.cursor_row)
-        .expect("Text row index out of bounds");
-    e.cursor_col = min(e.cursor_col, text_line.len());
-    text_line.insert(e.cursor_col, ch);
-    editor_update_row(e, e.cursor_row);
+    e.lines.push(Line::new(line));
     e.dirty = true;
 }
 
 fn editor_insert_char(e: &mut EditorState, ch: char) {
-    if e.cursor_row == e.text_lines.len() {
+    if e.cursor_row == e.lines.len() {
         editor_append_row(e, "".to_string());
     }
-    editor_row_insert_char(e, ch);
-    e.cursor_col += 1;
-}
-
-fn editor_row_delete_char(e: &mut EditorState) {
-    let text_line = e
-        .text_lines
-        .get_mut(e.cursor_row)
-        .expect("Text row index out of bounds");
-    if e.cursor_col < text_line.len() {
-        text_line.remove(e.cursor_col);
-        editor_update_row(e, e.cursor_row);
+    if let Some(line) = e.lines.get_mut(e.cursor_row) {
+        line.insert(e.cursor_col, ch);
+        e.cursor_col += 1;
         e.dirty = true;
     }
 }
 
 fn editor_delete_char(e: &mut EditorState) {
-    if e.cursor_row < e.text_lines.len() && e.cursor_col > 0 {
-        e.cursor_col -= 1;
-        editor_row_delete_char(e);
+    if e.cursor_row == e.lines.len() { return; }
+    if let Some(line) = e.lines.get_mut(e.cursor_row) {
+        if e.cursor_col > 0 {
+            line.remove(e.cursor_col - 1);
+            e.cursor_col -= 1;
+            e.dirty = true;
+        }
     }
 }
 
 fn editor_rows_to_string(e: &EditorState) -> String {
-    let mut content = e.text_lines.join("\n");
+    let mut content = e
+        .lines
+        .iter()
+        .map(|line| line.content().to_string())
+        .collect::<Vec<String>>()
+        .join("\n");
     content.push('\n');
     content
 }
