@@ -203,17 +203,21 @@ fn editor_draw_rows(e: &mut EditorState) {
     }
 }
 
-fn editor_prompt(e: &mut EditorState, prompt: &str) -> Result<String> {
+fn editor_prompt(e: &mut EditorState, prompt: &str) -> Result<Option<String>> {
     let mut reply = String::new();
     loop {
         editor_set_status_message!(e, "{}{}", prompt, reply);
         editor_refresh_screen(e);
         match e.terminal.read_key()? {
             Key::Printable(ch) => reply.push(ch),
+            Key::Escape => {
+                editor_set_status_message!(e, "");
+                return Ok(None);
+            }
             Key::Newline => {
                 if !reply.is_empty() {
                     editor_set_status_message!(e, "");
-                    return Ok(reply);
+                    return Ok(Some(reply));
                 }
             }
             _ => {}
@@ -372,20 +376,22 @@ fn editor_rows_to_string(e: &EditorState) -> String {
 }
 
 fn editor_save(e: &mut EditorState) -> Result<()> {
-    let filename = if let Some(filename) = &e.filename {
-        filename.clone()
-    } else {
-        editor_prompt(e, "Save as: ")?.into()
-    };
-
-    let content = editor_rows_to_string(e);
-    if let Err(err) = std::fs::write(filename, content.as_bytes()) {
-        editor_set_status_message!(e, "Can't save! I/O error: {}", err);
-        return Err(err);
+    if e.filename.is_none() {
+        if let Ok(some_name) = editor_prompt(e, "Save as (ESC to cancel): ") {
+            e.filename = some_name.map(|filename| filename.into());
+        }
     }
-
-    editor_set_status_message!(e, "{} bytes written to disk", content.len());
-    e.dirty = false;
+    if let Some(filename) = &e.filename {
+        let content = editor_rows_to_string(e);
+        if let Err(err) = std::fs::write(filename, content.as_bytes()) {
+            editor_set_status_message!(e, "Can't save! I/O error: {}", err);
+            return Err(err);
+        }
+        editor_set_status_message!(e, "{} bytes written to disk", content.len());
+        e.dirty = false;
+    } else {
+        editor_set_status_message!(e, "Filename not set!!!");
+    }
     Ok(())
 }
 
