@@ -29,10 +29,10 @@ impl Line {
         self.update();
     }
 
-    // pub fn push_str(&mut self, content: &str) {
-    //     self.actual.push_str(content);
-    //     self.update();
-    // }
+    pub fn push_str(&mut self, content: &str) {
+        self.actual.push_str(content);
+        self.update();
+    }
 
     pub fn content(&self) -> &str {
         self.actual.as_str()
