@@ -174,7 +174,12 @@ fn editor_draw_content(e: &mut EditorState) {
             .iter()
             .skip(e.row_offset)
             .map(|line| line.rendered())
-            .chain(std::iter::repeat("~").take(e.rows().saturating_sub(e.lines.len())))
+            .chain(
+                std::iter::repeat("~").take(
+                    e.rows()
+                        .saturating_sub(e.lines.len().saturating_sub(e.row_offset)),
+                ),
+            )
             .map(|line| {
                 line.chars()
                     .skip(e.col_offset)
