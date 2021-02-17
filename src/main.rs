@@ -1,5 +1,3 @@
-use core::format_args;
-use std::fmt::Write;
 use std::fs::File;
 use std::io::Result;
 use std::io::{BufRead, BufReader};
@@ -8,18 +6,9 @@ use txtdt::buffer::Buffer;
 use txtdt::terminal::{Key, Motion, Terminal};
 
 const STATUS_HEIGHT: usize = 2; // 1 for Status bar. 1 for Status Message
-const TOTAL_QUIT_COUNT: usize = 3;
+const TOTAL_QUIT_COUNT: usize = 4;
 const FILE_NAME_WIDTH: usize = 20;
 const STATUS_LINE_BLANK: char = ' ';
-
-macro_rules! editor_set_status_message {
-    ($e:expr, $($arg:tt)*) => {{
-        $e.status_msg.clear();
-        if let Ok(_) = $e.status_msg.write_fmt($crate::format_args!($($arg)*)) {
-            $e.status_msg_ts = Instant::now();
-        }
-    }}
-}
 
 struct Editor {
     terminal: Terminal,
@@ -51,6 +40,11 @@ impl Editor {
     pub fn keep_alive(&self) -> bool {
         self.quit_count > 0
     }
+
+    pub fn set_status(&mut self, msg: String) {
+        self.status_msg = msg;
+        self.status_msg_ts = Instant::now();
+    }
 }
 
 fn editor_process_keypress(e: &mut Editor) -> Result<()> {
@@ -59,12 +53,13 @@ fn editor_process_keypress(e: &mut Editor) -> Result<()> {
     match key {
         Key::Control('Q') => {
             if e.buffer.is_dirty() && e.quit_count > 0 {
-                editor_set_status_message!(
-                    e,
+                e.quit_count -= 1;
+                e.set_status(format!(
                     "WARNING!!! Press Ctrl-Q {} more times to quit. File has unsaved changes.",
                     e.quit_count
-                );
-                e.quit_count -= 1;
+                ));
+            } else {
+                e.quit_count = 0;
             }
             return Ok(()); // To prevent resetting QUIT_COUNT
         }
@@ -125,21 +120,23 @@ fn editor_draw_rows(e: &mut Editor) {
     e.terminal.append(content.as_str());
 }
 
-fn editor_prompt(e: &mut Editor, prompt: &str) -> Result<Option<String>> {
+fn editor_prompt(e: &mut Editor, prompt: &str) -> Option<String> {
     let mut reply = String::new();
     loop {
-        editor_set_status_message!(e, "{}{}", prompt, reply);
+        e.set_status(format!("{}{}", prompt, reply));
         editor_refresh_screen(e);
-        match e.terminal.read_key()? {
+        match e.terminal.read_key().unwrap_or(Key::Escape) {
             Key::Printable(ch) => reply.push(ch),
             Key::Escape => {
-                editor_set_status_message!(e, "");
-                return Ok(None);
+                e.set_status(format!(""));
+                return None;
             }
             Key::Newline => {
                 if !reply.is_empty() {
-                    editor_set_status_message!(e, "");
-                    return Ok(Some(reply));
+                    e.set_status(format!(""));
+                    return Some(reply);
+                } else {
+                    return None;
                 }
             }
             Key::Delete | Key::Backspace | Key::Control('H') => {
@@ -217,20 +214,19 @@ fn editor_refresh_screen(e: &mut Editor) {
 
 fn editor_save(e: &mut Editor) -> Result<()> {
     if e.buffer.filename().is_none() {
-        if let Ok(some_name) = editor_prompt(e, "Save as (ESC to cancel): ") {
-            e.buffer.set_filename(some_name);
-        }
+        let some_name = editor_prompt(e, "Save as (ESC to cancel): ");
+        e.buffer.set_filename(some_name);
     }
     if let Some(filename) = &e.buffer.filename() {
         let content = e.buffer.rows_to_string();
         if let Err(err) = std::fs::write(filename, content.as_bytes()) {
-            editor_set_status_message!(e, "Can't save! I/O error: {}", err);
+            e.set_status(format!("Can't save! I/O error: {}", err));
             return Err(err);
         }
-        editor_set_status_message!(e, "{} bytes written to disk", content.len());
+        e.set_status(format!("{} bytes written to disk", content.len()));
         e.buffer.not_dirty();
     } else {
-        editor_set_status_message!(e, "Filename not set!!!");
+        e.set_status(format!("Filename not set!!!"));
     }
     Ok(())
 }
@@ -251,7 +247,7 @@ fn main() -> Result<()> {
     let mut editor = Editor::new()?;
 
     editor_open(&mut editor, std::env::args().nth(1))?;
-    editor_set_status_message!(&mut editor, "HELP: Ctrl-S = save | Ctrl-Q = quit");
+    editor.set_status(format!("HELP: Ctrl-S = save | Ctrl-Q = quit"));
 
     while editor.keep_alive() {
         editor_refresh_screen(&mut editor);
