@@ -21,7 +21,7 @@ struct Editor {
 impl Editor {
     pub fn new() -> Result<Self> {
         Ok(Self {
-            terminal: Terminal::new_raw()?,
+            terminal: Terminal::new()?,
             buffer: Buffer::new(),
             status_msg: String::new(),
             status_msg_ts: Instant::now(),

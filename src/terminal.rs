@@ -64,19 +64,18 @@ impl WinSizeAttrExt for WinSize {
                 if Terminal::write(botright) != botright.len() as isize {
                     return Err(Error::new(ErrorKind::Other, "Can't get window size"));
                 }
-                Self::get_cursor_position()?;
+                return Self::get_cursor_position();
             }
             Ok((ws.ws_row as usize, ws.ws_col as usize))
         }
     }
 
     fn get_cursor_position() -> Result<(usize, usize)> {
-        Terminal::write("\x1b[6n");
-        print!("\r\n");
+        Terminal::write("\x1b[6n\r\n");
 
         let cursor_buf = io::stdin()
             .bytes()
-            .take_while(|c| matches!(c, Ok(b'R')))
+            .take_while(|c| !matches!(c, Ok(b'R')))
             .collect::<Result<Vec<_>>>()?;
 
         let dimensions = cursor_buf[2..]
@@ -117,7 +116,6 @@ pub enum Key {
 
 pub struct Terminal {
     orig_termios: Termios,
-    curr_termios: Termios,
     num_rows: usize,
     num_cols: usize,
     term_buffer: String,
@@ -126,26 +124,20 @@ pub struct Terminal {
 
 impl Terminal {
     pub fn new() -> Result<Self> {
-        let (num_rows, num_cols) = WinSize::get_window_size()?;
         let orig_termios = Termios::get_attr()?;
+
+        let mut curr_termios = orig_termios;
+        curr_termios.enable_raw_mode()?;
+
+        let (num_rows, num_cols) = WinSize::get_window_size()?;
+
         Ok(Self {
             orig_termios,
-            curr_termios: orig_termios,
             num_rows,
             num_cols,
             term_buffer: String::new(),
             key_buffer: Vec::new(),
         })
-    }
-
-    pub fn make_raw(&mut self) -> Result<()> {
-        self.curr_termios.enable_raw_mode()
-    }
-
-    pub fn new_raw() -> Result<Self> {
-        let mut term = Terminal::new()?;
-        term.make_raw()?;
-        Ok(term)
     }
 
     pub fn rows(&self) -> usize {
