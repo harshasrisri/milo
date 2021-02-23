@@ -210,12 +210,13 @@ impl Buffer {
     }
 
     pub fn find(&self, query: String) -> (usize, usize) {
-        for (n, line) in self.lines.iter().enumerate() {
+        for (row, line) in self.lines.iter().enumerate() {
             let matches = line.match_indices(&query);
             if !matches.is_empty() {
-                return (n, matches[0].0);
+                let col = line.render_to_cursor_position(matches[0].0);
+                return (row, col);
             }
         }
-        (self.cursor_row, self.cursor_row)
+        (self.cursor_row, self.cursor_col)
     }
 }
