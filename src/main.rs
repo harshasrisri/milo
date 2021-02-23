@@ -129,17 +129,9 @@ fn editor_prompt_incremental(e: &mut Editor, prompt: &str, incremental: &mut Str
             incremental.push(ch);
             false
         }
-        Key::Escape => {
+        Key::Newline | Key::Escape => {
             e.set_status(format!(""));
             true
-        }
-        Key::Newline => {
-            if !incremental.is_empty() {
-                e.set_status(format!(""));
-                true
-            } else {
-                true
-            }
         }
         Key::Delete | Key::Backspace | Key::Control('H') => {
             incremental.pop();
@@ -243,8 +235,12 @@ fn editor_save(e: &mut Editor) -> Result<()> {
 }
 
 fn editor_find(e: &mut Editor) {
-    if let Some(query) = editor_prompt(e, "Search (ESC to cancel): ") {
-        let (row, col) = e.buffer.find(query);
+    let mut query = String::new();
+    let mut finished = false;
+    while !finished {
+        finished = editor_prompt_incremental(e, "Search (ESC to cancel): ", &mut query);
+        let (row, col) = e.buffer.find(&query);
+        eprintln!("{} - {}, {}", query, row, col);
         e.buffer.place_cursor(row, col);
     }
 }

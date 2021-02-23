@@ -209,9 +209,9 @@ impl Buffer {
         }
     }
 
-    pub fn find(&self, query: String) -> (usize, usize) {
+    pub fn find(&self, query: &str) -> (usize, usize) {
         for (row, line) in self.lines.iter().enumerate() {
-            let matches = line.match_indices(&query);
+            let matches = line.match_indices(query);
             if !matches.is_empty() {
                 let col = line.render_to_cursor_position(matches[0].0);
                 return (row, col);
