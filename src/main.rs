@@ -129,7 +129,12 @@ fn editor_prompt_incremental(e: &mut Editor, prompt: &str, incremental: &mut Str
             incremental.push(ch);
             false
         }
-        Key::Newline | Key::Escape => {
+        Key::Newline => {
+            e.set_status(format!(""));
+            true
+        }
+        Key::Escape => {
+            incremental.clear();
             e.set_status(format!(""));
             true
         }
@@ -168,7 +173,7 @@ fn editor_draw_status_bar(e: &mut Editor) {
             ""
         },
     );
-    let (c_row, _) = e.buffer.cursor_position();
+    let c_row = e.buffer.cursor_position().cursor_row;
     let status_right = format!("{}/{}", c_row + 1, e.buffer.line_count());
     let num_spaces = e
         .cols()
@@ -237,11 +242,14 @@ fn editor_save(e: &mut Editor) -> Result<()> {
 fn editor_find(e: &mut Editor) {
     let mut query = String::new();
     let mut finished = false;
+    let cursor = e.buffer.cursor_position();
     while !finished {
         finished = editor_prompt_incremental(e, "Search (ESC to cancel): ", &mut query);
         let (row, col) = e.buffer.find(&query);
-        eprintln!("{} - {}, {}", query, row, col);
         e.buffer.place_cursor(row, col);
+    }
+    if query.is_empty() {
+        e.buffer.set_cursor_position(cursor);
     }
 }
 

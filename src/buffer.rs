@@ -15,6 +15,13 @@ pub struct Buffer {
     dirty: bool,
 }
 
+pub struct Cursor {
+    pub cursor_row: usize,
+    pub cursor_col: usize,
+    pub row_offset: usize,
+    pub col_offset: usize,
+}
+
 impl Buffer {
     pub fn new() -> Self {
         Self::default()
@@ -44,8 +51,20 @@ impl Buffer {
         self.lines.len()
     }
 
-    pub fn cursor_position(&self) -> (usize, usize) {
-        (self.cursor_row, self.cursor_col)
+    pub fn cursor_position(&self) -> Cursor {
+        Cursor {
+            cursor_row: self.cursor_row,
+            cursor_col: self.cursor_col,
+            row_offset: self.row_offset,
+            col_offset: self.col_offset,
+        }
+    }
+
+    pub fn set_cursor_position(&mut self, cursor: Cursor) {
+        self.cursor_row = cursor.cursor_row;
+        self.cursor_col = cursor.cursor_col;
+        self.row_offset = cursor.row_offset;
+        self.col_offset = cursor.col_offset;
     }
 
     pub fn cursor_placement(&self) -> (usize, usize) {
