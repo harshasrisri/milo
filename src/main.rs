@@ -226,9 +226,16 @@ fn editor_save(e: &mut Editor) -> Result<()> {
         e.set_status(format!("{} bytes written to disk", content.len()));
         e.buffer.not_dirty();
     } else {
-        e.set_status(format!("Filename not set!!!"));
+        e.set_status("Filename not set!!!".to_string());
     }
     Ok(())
+}
+
+fn editor_find(e: &mut Editor) {
+    if let Some(query) = editor_prompt(e, "Search (ESC to cancel):") {
+        let (row, col) = e.buffer.find(query);
+        e.buffer.place_cursor(row, col);
+    }
 }
 
 fn editor_open(e: &mut Editor, file_arg: Option<String>) -> Result<()> {
@@ -247,7 +254,7 @@ fn main() -> Result<()> {
     let mut editor = Editor::new()?;
 
     editor_open(&mut editor, std::env::args().nth(1))?;
-    editor.set_status(format!("HELP: Ctrl-S = save | Ctrl-Q = quit"));
+    editor.set_status("HELP: Ctrl-S = save | Ctrl-Q = quit".to_string());
 
     while editor.keep_alive() {
         editor_refresh_screen(&mut editor);

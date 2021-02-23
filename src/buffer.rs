@@ -112,6 +112,12 @@ impl Buffer {
         }
     }
 
+    pub fn place_cursor(&mut self, row: usize, col: usize) {
+        self.cursor_row = row;
+        self.cursor_col = col;
+        self.row_offset = self.lines.len();
+    }
+
     pub fn frame_content(&self, rows: usize, cols: usize) -> String {
         self.lines
             .iter()
@@ -201,5 +207,15 @@ impl Buffer {
                 self.cursor_row -= 1;
             }
         }
+    }
+
+    pub fn find(&self, query: String) -> (usize, usize) {
+        for (n, line) in self.lines.iter().enumerate() {
+            let matches = line.match_indices(&query);
+            if !matches.is_empty() {
+                return (n, matches[0].0);
+            }
+        }
+        (self.cursor_row, self.cursor_row)
     }
 }

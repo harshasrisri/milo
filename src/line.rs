@@ -46,6 +46,10 @@ impl Line {
         self.rendered.as_str()
     }
 
+    pub fn match_indices(&self, query: &str) -> Vec<(usize, &str)> {
+        self.rendered.match_indices(query).collect()
+    }
+
     pub fn render_position(&self, pos: usize) -> usize {
         self.actual.chars().take(pos).fold(0, |rx, c| {
             if c == '\t' {
