@@ -64,6 +64,7 @@ fn editor_process_keypress(e: &mut Editor) -> Result<()> {
             return Ok(()); // To prevent resetting QUIT_COUNT
         }
         Key::Control('S') => editor_save(e)?,
+        Key::Control('F') => editor_find(e),
         Key::Move(motion) => e.buffer.move_cursor(motion, e.rows(), e.cols()),
         Key::Printable(ch) => e.buffer.insert_char(ch),
         Key::Tab => e.buffer.insert_char('\t'),
@@ -232,7 +233,7 @@ fn editor_save(e: &mut Editor) -> Result<()> {
 }
 
 fn editor_find(e: &mut Editor) {
-    if let Some(query) = editor_prompt(e, "Search (ESC to cancel):") {
+    if let Some(query) = editor_prompt(e, "Search (ESC to cancel): ") {
         let (row, col) = e.buffer.find(query);
         e.buffer.place_cursor(row, col);
     }
@@ -254,7 +255,7 @@ fn main() -> Result<()> {
     let mut editor = Editor::new()?;
 
     editor_open(&mut editor, std::env::args().nth(1))?;
-    editor.set_status("HELP: Ctrl-S = save | Ctrl-Q = quit".to_string());
+    editor.set_status("HELP: Ctrl-S = save | Ctrl-F = find | Ctrl-Q = quit".to_string());
 
     while editor.keep_alive() {
         editor_refresh_screen(&mut editor);
