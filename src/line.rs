@@ -50,7 +50,7 @@ impl Line {
         self.rendered.match_indices(query).collect()
     }
 
-    pub fn render_position(&self, pos: usize) -> usize {
+    pub fn cursor_to_render_position(&self, pos: usize) -> usize {
         self.actual.chars().take(pos).fold(0, |rx, c| {
             if c == '\t' {
                 rx + TAB_STOP - (rx % TAB_STOP)
@@ -58,6 +58,24 @@ impl Line {
                 rx + 1
             }
         })
+    }
+
+    pub fn render_to_cursor_position(&self, pos: usize) -> usize {
+        match self.actual.chars().enumerate().try_fold(0, |rx, (n, ch)| {
+            let rx = if ch == '\t' {
+                rx + TAB_STOP - (rx % TAB_STOP)
+            } else {
+                rx + 1
+            };
+            if rx > pos {
+                Err(n)
+            } else {
+                Ok(rx)
+            }
+        }) {
+            Ok(v) => v,
+            Err(v) => v,
+        }
     }
 
     pub fn split_off(&mut self, index: usize) -> String {

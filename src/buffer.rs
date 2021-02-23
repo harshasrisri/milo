@@ -96,7 +96,7 @@ impl Buffer {
         self.render_col = self
             .lines
             .get(self.cursor_row)
-            .map(|line| line.render_position(self.cursor_col))
+            .map(|line| line.cursor_to_render_position(self.cursor_col))
             .unwrap_or_default();
 
         if self.cursor_row < self.row_offset {
