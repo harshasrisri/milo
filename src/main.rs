@@ -121,29 +121,39 @@ fn editor_draw_rows(e: &mut Editor) {
     e.terminal.append(content.as_str());
 }
 
+fn editor_prompt_incremental(e: &mut Editor, prompt: &str, incremental: &mut String) -> bool {
+    e.set_status(format!("{}{}", prompt, incremental));
+    editor_refresh_screen(e);
+    match e.terminal.read_key().unwrap_or(Key::Escape) {
+        Key::Printable(ch) => {
+            incremental.push(ch);
+            false
+        }
+        Key::Escape => {
+            e.set_status(format!(""));
+            true
+        }
+        Key::Newline => {
+            if !incremental.is_empty() {
+                e.set_status(format!(""));
+                true
+            } else {
+                true
+            }
+        }
+        Key::Delete | Key::Backspace | Key::Control('H') => {
+            incremental.pop();
+            false
+        }
+        _ => false,
+    }
+}
+
 fn editor_prompt(e: &mut Editor, prompt: &str) -> Option<String> {
     let mut reply = String::new();
     loop {
-        e.set_status(format!("{}{}", prompt, reply));
-        editor_refresh_screen(e);
-        match e.terminal.read_key().unwrap_or(Key::Escape) {
-            Key::Printable(ch) => reply.push(ch),
-            Key::Escape => {
-                e.set_status(format!(""));
-                return None;
-            }
-            Key::Newline => {
-                if !reply.is_empty() {
-                    e.set_status(format!(""));
-                    return Some(reply);
-                } else {
-                    return None;
-                }
-            }
-            Key::Delete | Key::Backspace | Key::Control('H') => {
-                reply.pop();
-            }
-            _ => {}
+        if editor_prompt_incremental(e, prompt, &mut reply) {
+            return if reply.is_empty() { None } else { Some(reply) };
         }
     }
 }
