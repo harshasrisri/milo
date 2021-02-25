@@ -10,6 +10,11 @@ const TOTAL_QUIT_COUNT: usize = 4;
 const FILE_NAME_WIDTH: usize = 20;
 const STATUS_LINE_BLANK: char = ' ';
 
+enum SearchDirection {
+    Forward,
+    Reverse,
+}
+
 struct Editor {
     terminal: Terminal,
     buffer: Buffer,
@@ -64,7 +69,8 @@ fn editor_process_keypress(e: &mut Editor) -> Result<()> {
             return Ok(()); // To prevent resetting QUIT_COUNT
         }
         Key::Control('S') => editor_save(e)?,
-        Key::Control('F') => editor_find(e),
+        Key::Control('F') => editor_find(e, SearchDirection::Forward),
+        Key::Control('G') => editor_find(e, SearchDirection::Reverse),
         Key::Move(motion) => e.buffer.move_cursor(motion, e.rows(), e.cols()),
         Key::Printable(ch) => e.buffer.insert_char(ch),
         Key::Tab => e.buffer.insert_char('\t'),
@@ -121,35 +127,39 @@ fn editor_draw_rows(e: &mut Editor) {
     e.terminal.append(content.as_str());
 }
 
-fn editor_prompt_incremental(e: &mut Editor, prompt: &str, incremental: &mut String) -> bool {
+fn editor_prompt_incremental(
+    e: &mut Editor,
+    prompt: &str,
+    incremental: &mut String,
+) -> (bool, Option<Key>) {
     e.set_status(format!("{}{}", prompt, incremental));
     editor_refresh_screen(e);
     match e.terminal.read_key().unwrap_or(Key::Escape) {
         Key::Printable(ch) => {
             incremental.push(ch);
-            false
+            (false, None)
         }
         Key::Newline => {
             e.set_status(format!(""));
-            true
+            (true, None)
         }
         Key::Escape => {
             incremental.clear();
             e.set_status(format!(""));
-            true
+            (true, None)
         }
         Key::Delete | Key::Backspace | Key::Control('H') => {
             incremental.pop();
-            false
+            (false, None)
         }
-        _ => false,
+        key => (false, Some(key)),
     }
 }
 
 fn editor_prompt(e: &mut Editor, prompt: &str) -> Option<String> {
     let mut reply = String::new();
     loop {
-        if editor_prompt_incremental(e, prompt, &mut reply) {
+        if editor_prompt_incremental(e, prompt, &mut reply).0 {
             return if reply.is_empty() { None } else { Some(reply) };
         }
     }
@@ -239,13 +249,28 @@ fn editor_save(e: &mut Editor) -> Result<()> {
     Ok(())
 }
 
-fn editor_find(e: &mut Editor) {
+fn editor_find(e: &mut Editor, direction: SearchDirection) {
     let mut query = String::new();
-    let mut finished = false;
     let cursor = e.buffer.cursor_position();
-    while !finished {
-        finished = editor_prompt_incremental(e, "Search (ESC to cancel): ", &mut query);
-        let (row, col) = e.buffer.find(&query);
+    loop {
+        let (finished, pending_key) =
+            editor_prompt_incremental(e, "Search (ESC to cancel): ", &mut query);
+        if finished {
+            break;
+        }
+        let (row, col) = match pending_key {
+            Some(Key::Move(Motion::Up)) | Some(Key::Move(Motion::Left)) => {
+                e.buffer.find_reverse(&query, true)
+            }
+            Some(Key::Move(Motion::Down)) | Some(Key::Move(Motion::Right)) => {
+                e.buffer.find_forward(&query, true)
+            }
+            _ => match direction {
+                SearchDirection::Forward => e.buffer.find_forward(&query, false),
+                SearchDirection::Reverse => e.buffer.find_reverse(&query, false),
+            },
+        };
+
         e.buffer.place_cursor(row, col);
     }
     if query.is_empty() {

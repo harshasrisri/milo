@@ -228,12 +228,54 @@ impl Buffer {
         }
     }
 
-    pub fn find(&self, query: &str) -> (usize, usize) {
-        for (row, line) in self.lines.iter().enumerate() {
+    pub fn find_forward(&self, query: &str, mut skip_once: bool) -> (usize, usize) {
+        let idx_lines = self
+            .lines
+            .iter()
+            .enumerate()
+            .cycle()
+            .skip(self.cursor_row)
+            .take(self.lines.len());
+
+        for (row, line) in idx_lines {
             let matches = line.match_indices(query);
-            if !matches.is_empty() {
-                let col = line.render_to_cursor_position(matches[0].0);
-                return (row, col);
+            for (col, _) in matches {
+                let col = line.render_to_cursor_position(col);
+                if row == self.cursor_row && col < self.cursor_col {
+                    continue;
+                }
+                if skip_once {
+                    skip_once = false;
+                } else {
+                    return (row, col);
+                }
+            }
+        }
+        (self.cursor_row, self.cursor_col)
+    }
+
+    pub fn find_reverse(&self, query: &str, mut skip_once: bool) -> (usize, usize) {
+        let idx_lines = self
+            .lines
+            .iter()
+            .enumerate()
+            .rev()
+            .cycle()
+            .skip(self.lines.len() - self.cursor_row - 1)
+            .take(self.lines.len());
+
+        for (row, line) in idx_lines {
+            let matches = line.match_indices(query);
+            for (col, _) in matches.into_iter().rev() {
+                let col = line.render_to_cursor_position(col);
+                if row == self.cursor_row && col > self.cursor_col {
+                    continue;
+                }
+                if skip_once {
+                    skip_once = false;
+                } else {
+                    return (row, col);
+                }
             }
         }
         (self.cursor_row, self.cursor_col)
