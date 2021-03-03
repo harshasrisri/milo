@@ -214,6 +214,7 @@ fn editor_draw_message_bar(e: &mut Editor) {
 }
 
 fn editor_refresh_screen(e: &mut Editor) {
+    e.terminal.refresh().unwrap_or(());
     e.buffer.scroll(e.rows(), e.cols());
 
     e.terminal.append("\x1b[?25l");

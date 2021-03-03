@@ -140,6 +140,13 @@ impl Terminal {
         })
     }
 
+    pub fn refresh(&mut self) -> Result<()> {
+        let (rows, cols) = WinSize::get_window_size()?;
+        self.num_rows = rows;
+        self.num_cols = cols;
+        Ok(())
+    }
+
     pub fn rows(&self) -> usize {
         self.num_rows
     }
