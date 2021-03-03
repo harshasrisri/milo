@@ -254,7 +254,7 @@ fn editor_find(e: &mut Editor, direction: SearchDirection) {
     let cursor = e.buffer.cursor_position();
     loop {
         let (finished, pending_key) =
-            editor_prompt_incremental(e, "Search (ESC to cancel): ", &mut query);
+            editor_prompt_incremental(e, "Search (Use ESC/Arrows/Enter): ", &mut query);
         if finished {
             break;
         }
