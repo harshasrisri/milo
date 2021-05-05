@@ -2,8 +2,8 @@ use std::fs::File;
 use std::io::Result;
 use std::io::{BufRead, BufReader};
 use std::time::Instant;
-use txtdt::buffer::Buffer;
-use txtdt::terminal::{Key, Motion, Terminal};
+use milo::buffer::Buffer;
+use milo::terminal::{Key, Motion, Terminal};
 
 const STATUS_HEIGHT: usize = 2; // 1 for Status bar. 1 for Status Message
 const TOTAL_QUIT_COUNT: usize = 4;
