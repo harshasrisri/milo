@@ -229,12 +229,12 @@ impl Editor {
                 (false, None)
             }
             Key::Newline => {
-                self.set_status(format!(""));
+                self.set_status(String::new());
                 (true, None)
             }
             Key::Escape => {
                 incremental.clear();
-                self.set_status(format!(""));
+                self.set_status(String::new());
                 (true, None)
             }
             Key::Delete | Key::Backspace | Key::Control('H') => {

@@ -2,7 +2,7 @@
 name = "milo"
 version = "0.6.0"
 authors = ["Sriharsha Mucheli <harshasrisri@gmail.com>"]
-edition = "2018"
+edition = "2021"
 description = "Building a small text editor in Rust by emulating https://viewsourcecode.org/snaptoken/kilo (written in C)"
 
 [dependencies]
